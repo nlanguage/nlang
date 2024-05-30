@@ -10,9 +10,9 @@ class Generator(private val root: Program)
         {
             when (node)
             {
-                is Function -> visitFunction(node)
+                is Function  -> visitFunction(node)
                 is Prototype -> visitExtern(node)
-                else -> throw UnhandledCodeGenException("Unhandled top-level node")
+                else         -> throw UnhandledCodeGenException("Unhandled top-level node")
             }
         }
 
@@ -59,29 +59,47 @@ class Generator(private val root: Program)
         {
             when (statement)
             {
-                is ReturnStatement -> visitReturnStatement(statement)
-                else -> throw UnhandledCodeGenException("Unhandled statement")
+                is ReturnStatement  -> visitReturnStatement(statement)
+                is ExprStatement    -> visitExprStatement(statement)
+                is DeclareStatement -> visitDeclarationStatement(statement)
+                else                -> throw UnhandledCodeGenException("Unhandled statement")
             }
         }
 
         output.append("\n}\n")
     }
 
+    private fun visitDeclarationStatement(statement: DeclareStatement)
+    {
+        output.append("int ")
+        output.append(statement.name)
+        output.append(" = ")
+        visitExpr(statement.expr)
+        output.append(";\n")
+    }
+
+
+    private fun visitExprStatement(statement: ExprStatement)
+    {
+        visitExpr(statement.expr)
+        output.append(";\n")
+    }
+
     private fun visitReturnStatement(statement: ReturnStatement)
     {
         output.append("return ")
         visitExpr(statement.expr)
-        output.append(";")
+        output.append(";\n")
     }
 
     private fun visitExpr(expr: Expr)
     {
         when (expr)
         {
-            is BinaryExpr -> visitBinaryExpr(expr)
-            is NumberExpr -> visitNumberExpr(expr)
+            is BinaryExpr   -> visitBinaryExpr(expr)
+            is NumberExpr   -> visitNumberExpr(expr)
             is VariableExpr -> visitVariableExpr(expr)
-            is CallExpr -> visitCallExpr(expr)
+            is CallExpr     -> visitCallExpr(expr)
         }
     }
 

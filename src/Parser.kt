@@ -10,8 +10,8 @@ class Parser(private val lexer: Lexer)
             when (lexer.currentTok.type)
             {
                 TokenType.EXTERN -> nodes += parseExtern()
-                TokenType.FUN -> nodes += parseDefinition()
-                else -> throw UnexpectedTokenException("Expected 'fun' or 'extern', got ${lexer.currentTok.text}")
+                TokenType.FUN    -> nodes += parseDefinition()
+                else             -> throw UnexpectedTokenException("Expected 'fun' or 'extern', got ${lexer.currentTok.text}")
             }
         }
 
@@ -95,7 +95,11 @@ class Parser(private val lexer: Lexer)
             when (lexer.currentTok.type)
             {
                 TokenType.RETURN -> statements += parseReturnStatement()
-                else -> throw UnexpectedTokenException("Expected statement, got ${lexer.currentTok.type}")
+
+                TokenType.VAL,
+                TokenType.VAR    -> statements += parseDeclarationStatement()
+
+                else             -> statements += ExprStatement(parseExpr())
             }
         }
 
@@ -103,6 +107,36 @@ class Parser(private val lexer: Lexer)
         lexer.eat()
 
         return Block(statements)
+    }
+
+    private fun parseDeclarationStatement(): Statement
+    {
+        val mutable = when (lexer.currentTok.type)
+        {
+            TokenType.VAL -> false
+            TokenType.VAR -> true
+            else          -> throw UnexpectedTokenException("Expected 'val' or 'var', got ${lexer.currentTok.text}")
+        }
+
+        // Consume 'val' or 'var'
+        lexer.eat()
+
+        val name = lexer.currentTok.text
+
+        // Consume Identifier
+        lexer.eat()
+
+        if (lexer.currentTok.type != TokenType.EQUALS)
+        {
+            throw UnexpectedTokenException("Expected '=', got ${lexer.currentTok.text}")
+        }
+
+        // Consume '='
+        lexer.eat()
+
+        val expr = parseExpr()
+
+        return DeclareStatement(mutable, name, expr)
     }
 
     private fun parseReturnStatement(): Statement
@@ -158,8 +192,8 @@ class Parser(private val lexer: Lexer)
         return when (lexer.currentTok.type)
         {
             TokenType.IDENTIFIER -> parseIdent()
-            TokenType.NUMERIC -> parseNumeric()
-            TokenType.LPAREN -> parseParen()
+            TokenType.NUMERIC    -> parseNumeric()
+            TokenType.LPAREN     -> parseParen()
             else -> throw UnexpectedTokenException("Expected expression, got ${lexer.currentTok.type}")
         }
     }

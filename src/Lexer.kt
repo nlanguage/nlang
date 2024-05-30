@@ -5,10 +5,13 @@ enum class TokenType
     FUN,
     EXTERN,
     RETURN,
+    VAL,
+    VAR,
     ADD,
     SUB,
     MUL,
     DIV,
+    EQUALS,
     LPAREN,
     RPAREN,
     LBRACE,
@@ -40,20 +43,6 @@ class Lexer(private val input: String)
         return input[pos - 1]
     }
 
-/*
-    private fun match(expected: Char): Boolean
-    {
-        if (isAtEnd() || input[pos] != expected)
-        {
-            return false
-        }
-
-        pos++
-
-        return true
-    }
-*/
-
     private fun skipWhitespace()
     {
         while (!isAtEnd() && peek().isWhitespace())
@@ -79,7 +68,7 @@ class Lexer(private val input: String)
     {
         val start = pos - 1
 
-        while (!isAtEnd() && peek().isLetterOrDigit())
+        while (!isAtEnd() && (peek().isLetterOrDigit() || peek() == '_'))
         {
             advance()
         }
@@ -88,10 +77,12 @@ class Lexer(private val input: String)
 
         val tokenType = when (text)
         {
-            "fun" -> TokenType.FUN
+            "fun"    -> TokenType.FUN
             "extern" -> TokenType.EXTERN
             "return" -> TokenType.RETURN
-            else -> TokenType.IDENTIFIER
+            "val"    -> TokenType.VAL
+            "var"    -> TokenType.VAR
+            else     -> TokenType.IDENTIFIER
         }
 
         return Token(tokenType, text, start)
@@ -111,18 +102,23 @@ class Lexer(private val input: String)
 
         currentTok = when (cur)
         {
-            '-' -> Token(TokenType.SUB, cur.toString(), pos - 1)
-            '*' -> Token(TokenType.MUL, cur.toString(), pos - 1)
-            '/' -> Token(TokenType.DIV, cur.toString(), pos - 1)
-            '+' -> Token(TokenType.ADD, cur.toString(), pos - 1)
-            '(' -> Token(TokenType.LPAREN, cur.toString(), pos - 1)
-            ')' -> Token(TokenType.RPAREN, cur.toString(), pos - 1)
-            '{' -> Token(TokenType.LBRACE, cur.toString(), pos - 1)
-            '}' -> Token(TokenType.RBRACE, cur.toString(), pos - 1)
-            ',' -> Token(TokenType.COMMA, cur.toString(), pos - 1)
-            in '0'..'9' -> number()
-            in 'a'..'z', in 'A'..'Z', '_' -> identifier()
-            else -> throw UnexpectedCharException("Unexpected character: $cur at position $pos")
+            '-'              -> Token(TokenType.SUB, cur.toString(), pos - 1)
+            '*'              -> Token(TokenType.MUL, cur.toString(), pos - 1)
+            '/'              -> Token(TokenType.DIV, cur.toString(), pos - 1)
+            '+'              -> Token(TokenType.ADD, cur.toString(), pos - 1)
+            '('              -> Token(TokenType.LPAREN, cur.toString(), pos - 1)
+            ')'              -> Token(TokenType.RPAREN, cur.toString(), pos - 1)
+            '{'              -> Token(TokenType.LBRACE, cur.toString(), pos - 1)
+            '}'              -> Token(TokenType.RBRACE, cur.toString(), pos - 1)
+            ','              -> Token(TokenType.COMMA, cur.toString(), pos - 1)
+            '='              -> Token(TokenType.EQUALS, cur.toString(), pos - 1)
+
+            in '0'..'9'      -> number()
+
+            in 'a'..'z',
+            in 'A'..'Z', '_' -> identifier()
+
+            else             -> throw UnexpectedCharException("Unexpected character: $cur at position $pos")
         }
     }
 }

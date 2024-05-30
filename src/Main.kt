@@ -26,7 +26,7 @@ fun main(args: Array<String>)
 
     clangInputFile.writeText(clangInput)
 
-    val clangProcess = ProcessBuilder("clang", "-o", args[1], clangInputFile.path)
+    val clangProcess = ProcessBuilder("clang", "-Wno-unused-value", "-o", args[1], clangInputFile.path, "stdlib.c")
         .inheritIO()
         .start()
 

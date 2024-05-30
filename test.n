@@ -1,6 +1,12 @@
+extern fun print_int(a)
+
 fun main()
 {
-    return multiply(5, 2)
+    val a = 69
+    var b = 420
+
+    print_int(multiply(a, b))
+    return 0
 }
 
 fun multiply(a, b)
