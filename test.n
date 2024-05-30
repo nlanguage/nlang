@@ -1,0 +1,9 @@
+fun main()
+{
+    return multiply(5, 2)
+}
+
+fun multiply(a, b)
+{
+    return a * b
+}
