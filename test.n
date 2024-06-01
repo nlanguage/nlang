@@ -2,14 +2,8 @@ extern fun print_int(a)
 
 fun main()
 {
-    val a = 69
-    var b = 420
-
-    print_int(multiply(a, b))
-    return 0
-}
-
-fun multiply(a, b)
-{
-    return a * b
+    var a = 2
+    print_int(a)
+    a = 5
+    print_int(a)
 }

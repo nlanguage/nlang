@@ -20,26 +20,42 @@ enum class TokenType
     EOF,
 }
 
-data class Token(val type: TokenType, val text: String, val position: Int)
-
-class UnexpectedCharException(message: String) : Exception(message)
+data class Token(val type: TokenType, val text: String, val filePos: FilePos)
 
 class Lexer(private val input: String)
 {
-    // Will be valid after first call to eat();
-    lateinit var currentTok: Token
+    // current and lookahead tokens will be valid after prime()
+
+    lateinit var current: Token
         private set
 
-    private var pos: Int = 0;
-    private var len: Int = input.length;
+    lateinit var lookahead: Token
+        private set
 
-    public fun isAtEnd(): Boolean = pos >= len;
+    private var len = input.length;
+
+    private var pos = 0;
+    private var line = 1;
+    private var col = 1;
+
+    fun isAtEnd(): Boolean = pos >= len;
 
     private fun peek(): Char = if (isAtEnd()) '\u0000' else input[pos]
 
     private fun advance(): Char
     {
+        if (input[pos] == '\n')
+        {
+            col = 1
+            line++
+        }
+        else
+        {
+            col++
+        }
+
         pos++;
+
         return input[pos - 1]
     }
 
@@ -60,7 +76,7 @@ class Lexer(private val input: String)
             advance()
         }
 
-        return Token(TokenType.NUMERIC, input.substring(start, pos), start)
+        return Token(TokenType.NUMERIC, input.substring(start, pos), FilePos(line, col))
     }
 
     // Handles both identifiers and keywords
@@ -85,40 +101,52 @@ class Lexer(private val input: String)
             else     -> TokenType.IDENTIFIER
         }
 
-        return Token(tokenType, text, start)
+        return Token(tokenType, text, FilePos(line, col))
+    }
+
+    fun prime()
+    {
+        // Eat twice to load a token into 'lookahead' and 'current'
+        eat()
+        eat()
     }
 
     fun eat()
     {
+        if (this::lookahead.isInitialized)
+        {
+            current = lookahead
+        }
+
         skipWhitespace()
 
         if (isAtEnd())
         {
-            currentTok = Token(TokenType.EOF, "", pos)
+            lookahead = Token(TokenType.EOF, "", FilePos(line, col))
             return
         }
 
         val cur = advance()
 
-        currentTok = when (cur)
+        lookahead = when (cur)
         {
-            '-'              -> Token(TokenType.SUB, cur.toString(), pos - 1)
-            '*'              -> Token(TokenType.MUL, cur.toString(), pos - 1)
-            '/'              -> Token(TokenType.DIV, cur.toString(), pos - 1)
-            '+'              -> Token(TokenType.ADD, cur.toString(), pos - 1)
-            '('              -> Token(TokenType.LPAREN, cur.toString(), pos - 1)
-            ')'              -> Token(TokenType.RPAREN, cur.toString(), pos - 1)
-            '{'              -> Token(TokenType.LBRACE, cur.toString(), pos - 1)
-            '}'              -> Token(TokenType.RBRACE, cur.toString(), pos - 1)
-            ','              -> Token(TokenType.COMMA, cur.toString(), pos - 1)
-            '='              -> Token(TokenType.EQUALS, cur.toString(), pos - 1)
+            '*'              -> Token(TokenType.MUL, cur.toString(), FilePos(line, col))
+            '/'              -> Token(TokenType.DIV, cur.toString(), FilePos(line, col))
+            '+'              -> Token(TokenType.ADD, cur.toString(), FilePos(line, col))
+            '-'              -> Token(TokenType.SUB, cur.toString(), FilePos(line, col))
+            ')'              -> Token(TokenType.RPAREN, cur.toString(), FilePos(line, col))
+            '{'              -> Token(TokenType.LBRACE, cur.toString(), FilePos(line, col))
+            '}'              -> Token(TokenType.RBRACE, cur.toString(), FilePos(line, col))
+            '('              -> Token(TokenType.LPAREN, cur.toString(), FilePos(line, col))
+            ','              -> Token(TokenType.COMMA, cur.toString(), FilePos(line, col))
+            '='              -> Token(TokenType.EQUALS, cur.toString(), FilePos(line, col))
 
             in '0'..'9'      -> number()
 
             in 'a'..'z',
             in 'A'..'Z', '_' -> identifier()
 
-            else             -> throw UnexpectedCharException("Unexpected character: $cur at position $pos")
+            else             -> reportError("Lex", FilePos(line, col), "Unexpected character '$cur'")
         }
     }
 }

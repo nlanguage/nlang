@@ -1,5 +1,3 @@
-class UnexpectedTokenException(message: String) : Exception(message)
-
 class Parser(private val lexer: Lexer)
 {
     fun parseProgram(): Program
@@ -7,11 +5,11 @@ class Parser(private val lexer: Lexer)
         val nodes = mutableListOf<AstNode>()
         while (!lexer.isAtEnd())
         {
-            when (lexer.currentTok.type)
+            when (lexer.current.type)
             {
                 TokenType.EXTERN -> nodes += parseExtern()
                 TokenType.FUN    -> nodes += parseDefinition()
-                else             -> throw UnexpectedTokenException("Expected 'fun' or 'extern', got ${lexer.currentTok.text}")
+                else             -> reportParseError("'fun' or 'extern'")
             }
         }
 
@@ -43,33 +41,33 @@ class Parser(private val lexer: Lexer)
 
     private fun parsePrototype(): Prototype
     {
-        val name = lexer.currentTok.text
+        val name = lexer.current.text
 
         // Consume identifier
         lexer.eat()
 
-        if (lexer.currentTok.type != TokenType.LPAREN)
+        if (lexer.current.type != TokenType.LPAREN)
         {
-            throw UnexpectedTokenException("Expected '(', got ${lexer.currentTok.text}")
+            reportParseError("'('")
         }
 
         // Consume '('
         lexer.eat()
 
         val args = mutableListOf<String>()
-        if (lexer.currentTok.type != TokenType.RPAREN) {
+        if (lexer.current.type != TokenType.RPAREN) {
             while (true) {
-                args += lexer.currentTok.text
+                args += lexer.current.text
 
                 // Consume identifier
                 lexer.eat()
 
-                if (lexer.currentTok.type == TokenType.RPAREN) {
+                if (lexer.current.type == TokenType.RPAREN) {
                     break;
                 }
 
-                if (lexer.currentTok.type != TokenType.COMMA) {
-                    throw UnexpectedTokenException("Expected ',' but found ${lexer.currentTok.text}")
+                if (lexer.current.type != TokenType.COMMA) {
+                    reportParseError("','")
                 }
 
                 // Consume ','
@@ -90,16 +88,28 @@ class Parser(private val lexer: Lexer)
 
         val statements = mutableListOf<Statement>()
 
-        while (lexer.currentTok.type != TokenType.RBRACE)
+        while (lexer.current.type != TokenType.RBRACE)
         {
-            when (lexer.currentTok.type)
+            when (lexer.current.type)
             {
-                TokenType.RETURN -> statements += parseReturnStatement()
+                TokenType.RETURN     -> statements += parseReturnStatement()
 
                 TokenType.VAL,
-                TokenType.VAR    -> statements += parseDeclarationStatement()
+                TokenType.VAR        -> statements += parseDeclarationStatement()
 
-                else             -> statements += ExprStatement(parseExpr())
+                TokenType.IDENTIFIER ->
+                {
+                    if (lexer.lookahead.type == TokenType.EQUALS)
+                    {
+                        statements += parseAssignStatement()
+                    }
+                    else
+                    {
+                        statements += ExprStatement(parseExpr())
+                    }
+                }
+
+                else -> reportParseError("statement")
             }
         }
 
@@ -109,26 +119,46 @@ class Parser(private val lexer: Lexer)
         return Block(statements)
     }
 
+    private fun parseAssignStatement(): Statement
+    {
+        val name = lexer.current.text
+
+        // Consume identifier
+        lexer.eat()
+
+        if (lexer.current.type != TokenType.EQUALS)
+        {
+            reportParseError(expected = "'='")
+        }
+
+        // Consume '='
+        lexer.eat()
+
+        val expr = parseExpr()
+
+        return AssignStatement(name, expr)
+    }
+
     private fun parseDeclarationStatement(): Statement
     {
-        val mutable = when (lexer.currentTok.type)
+        val mutable = when (lexer.current.type)
         {
             TokenType.VAL -> false
             TokenType.VAR -> true
-            else          -> throw UnexpectedTokenException("Expected 'val' or 'var', got ${lexer.currentTok.text}")
+            else          -> reportParseError("'val' or 'var'")
         }
 
         // Consume 'val' or 'var'
         lexer.eat()
 
-        val name = lexer.currentTok.text
+        val name = lexer.current.text
 
         // Consume Identifier
         lexer.eat()
 
-        if (lexer.currentTok.type != TokenType.EQUALS)
+        if (lexer.current.type != TokenType.EQUALS)
         {
-            throw UnexpectedTokenException("Expected '=', got ${lexer.currentTok.text}")
+            reportParseError("'='")
         }
 
         // Consume '='
@@ -169,7 +199,7 @@ class Parser(private val lexer: Lexer)
                 return lhs
             }
 
-            val operator = lexer.currentTok.text
+            val operator = lexer.current.text
 
             // Consume binary operator ('+', '-', etc.)
             lexer.eat()
@@ -189,12 +219,12 @@ class Parser(private val lexer: Lexer)
 
     private fun parsePrimary(): Expr
     {
-        return when (lexer.currentTok.type)
+        return when (lexer.current.type)
         {
             TokenType.IDENTIFIER -> parseIdent()
             TokenType.NUMERIC    -> parseNumeric()
             TokenType.LPAREN     -> parseParen()
-            else -> throw UnexpectedTokenException("Expected expression, got ${lexer.currentTok.type}")
+            else -> reportParseError("expression")
         }
     }
 
@@ -206,9 +236,9 @@ class Parser(private val lexer: Lexer)
         // parseExpr() will consume any tokens between '(' and ')'
         val inner = parseExpr()
 
-        if (lexer.currentTok.type != TokenType.RPAREN)
+        if (lexer.current.type != TokenType.RPAREN)
         {
-            throw UnexpectedTokenException("Expected ')'")
+            reportParseError("')'")
         }
 
         // Consume ')'
@@ -219,7 +249,7 @@ class Parser(private val lexer: Lexer)
 
     private fun parseNumeric(): Expr
     {
-        val result = NumberExpr(lexer.currentTok.text.toBigDecimal());
+        val result = NumberExpr(lexer.current.text.toBigDecimal());
 
         // Consume Number
         lexer.eat()
@@ -230,13 +260,13 @@ class Parser(private val lexer: Lexer)
     // Parses either a variable or a function call
     private fun parseIdent(): Expr
     {
-        val ident = lexer.currentTok.text
+        val ident = lexer.current.text
 
         // Consume Identifier
         lexer.eat()
 
         // Variable
-        if (lexer.currentTok.type != TokenType.LPAREN)
+        if (lexer.current.type != TokenType.LPAREN)
         {
             return VariableExpr(ident)
         }
@@ -247,20 +277,20 @@ class Parser(private val lexer: Lexer)
         lexer.eat()
 
         val args = mutableListOf<Expr>()
-        if (lexer.currentTok.type != TokenType.RPAREN)
+        if (lexer.current.type != TokenType.RPAREN)
         {
             while (true)
             {
                 args += parseExpr()
 
-                if (lexer.currentTok.type == TokenType.RPAREN)
+                if (lexer.current.type == TokenType.RPAREN)
                 {
                     break;
                 }
 
-                if (lexer.currentTok.type != TokenType.COMMA)
+                if (lexer.current.type != TokenType.COMMA)
                 {
-                    throw UnexpectedTokenException("Expected ',' but found ${lexer.currentTok.text}")
+                    reportParseError("','")
                 }
 
                 // Consume ','
@@ -278,7 +308,7 @@ class Parser(private val lexer: Lexer)
     private fun getCurTokPrecedence(): Int
     {
         // -1 is used a comparison
-        return opPrecedence[lexer.currentTok.text] ?: -1
+        return opPrecedence[lexer.current.text] ?: -1
     }
 
     private val opPrecedence = mapOf(
@@ -287,4 +317,9 @@ class Parser(private val lexer: Lexer)
         "-" to 20,
         "+" to 20,
     )
+
+    private fun reportParseError(expected: String): Nothing
+    {
+        reportError("Parsing", lexer.current.filePos, "Expected $expected but found '${lexer.current.text}'")
+    }
 }

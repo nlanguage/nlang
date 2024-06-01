@@ -8,6 +8,7 @@ sealed class Statement
 data class ReturnStatement(val expr: Expr): Statement()
 data class ExprStatement(val expr: Expr): Statement()
 data class DeclareStatement(val mutable: Boolean, val name: String, val expr: Expr): Statement()
+data class AssignStatement(val name: String, val expr: Expr): Statement()
 
 data class Block(val statements: List<Statement>)
 

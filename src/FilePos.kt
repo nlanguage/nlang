@@ -1,0 +1,1 @@
+data class FilePos(val line: Int, val column: Int)

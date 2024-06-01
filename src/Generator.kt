@@ -1,4 +1,4 @@
-class UnhandledCodeGenException(message: String) : Exception(message)
+
 
 class Generator(private val root: Program)
 {
@@ -12,7 +12,7 @@ class Generator(private val root: Program)
             {
                 is Function  -> visitFunction(node)
                 is Prototype -> visitExtern(node)
-                else         -> throw UnhandledCodeGenException("Unhandled top-level node")
+                else         -> throw InternalCompilerException("Unhandled top-level node")
             }
         }
 
@@ -62,11 +62,21 @@ class Generator(private val root: Program)
                 is ReturnStatement  -> visitReturnStatement(statement)
                 is ExprStatement    -> visitExprStatement(statement)
                 is DeclareStatement -> visitDeclarationStatement(statement)
-                else                -> throw UnhandledCodeGenException("Unhandled statement")
+                is AssignStatement  -> visitAssignStatement(statement)
+                else                -> throw InternalCompilerException("Unhandled statement")
             }
+
+            output.append(";\n")
         }
 
         output.append("\n}\n")
+    }
+
+    private fun visitAssignStatement(statement: AssignStatement)
+    {
+        output.append(statement.name)
+        output.append('=')
+        visitExpr(statement.expr)
     }
 
     private fun visitDeclarationStatement(statement: DeclareStatement)
@@ -75,21 +85,18 @@ class Generator(private val root: Program)
         output.append(statement.name)
         output.append(" = ")
         visitExpr(statement.expr)
-        output.append(";\n")
     }
 
 
     private fun visitExprStatement(statement: ExprStatement)
     {
         visitExpr(statement.expr)
-        output.append(";\n")
     }
 
     private fun visitReturnStatement(statement: ReturnStatement)
     {
         output.append("return ")
         visitExpr(statement.expr)
-        output.append(";\n")
     }
 
     private fun visitExpr(expr: Expr)

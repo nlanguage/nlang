@@ -8,12 +8,15 @@ fun main(args: Array<String>)
         return
     }
 
+    println("\n")
+
     val source = File(args[0]).readText()
+
+    reportCompilation(args[0])
 
     val lexer  = Lexer(source);
 
-    // Prime the lexer
-    lexer.eat()
+    lexer.prime()
 
     // Parse and generate c code
     val parser = Parser(lexer);
@@ -32,7 +35,7 @@ fun main(args: Array<String>)
 
     clangProcess.waitFor()
 
-    println("Compilation complete. Running program >>>")
+    println("\nRunning compiled code:")
 
     val userProcess = ProcessBuilder("./" + args[1])
         .inheritIO()
