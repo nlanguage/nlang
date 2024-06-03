@@ -22,3 +22,8 @@ void print_bool(bool boolean)
         printf("false\n");
     }
 }
+
+void print_string(char* string)
+{
+    printf("%s\n", string);
+}

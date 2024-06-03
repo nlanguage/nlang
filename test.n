@@ -4,18 +4,14 @@ fun print_int(a: int) -> void
 fun print_char(a: char) -> void
 @extern
 fun print_bool(a: bool) -> void
-
-fun multiply(a: int, b: int) -> int
-{
-    return a * b
-}
+@extern
+fun print_string(a: string) -> void
 
 // Main function
 fun main() -> int
 {
-    var a = 5
+    var a = 'h'
+    var b = "Hello World"
 
-    a = 2
-
-    return 0
+    print_string(b)
 }

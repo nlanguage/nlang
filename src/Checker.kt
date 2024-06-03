@@ -120,6 +120,7 @@ class Checker(private val root: Program)
             is NumberExpr   -> "int"
             is BooleanExpr  -> "bool"
             is CharExpr     -> "char"
+            is StringExpr   -> "string"
             is VariableExpr -> checkVariableExpr(expr, scope)
             is CallExpr     -> checkCallExpr(expr, scope)
             is BinaryExpr   -> checkBinaryExpr(expr, scope)
@@ -171,7 +172,7 @@ class Checker(private val root: Program)
         return variable.type
     }
 
-    val possibleOps = mapOf(
+    private val possibleOps = mapOf(
         "int" to mapOf(
             "+" to true,
             "-" to true,
@@ -187,6 +188,13 @@ class Checker(private val root: Program)
         ),
 
         "char" to mapOf(
+            "+" to false,
+            "-" to false,
+            "*" to false,
+            "/" to false,
+        ),
+
+        "string" to mapOf(
             "+" to false,
             "-" to false,
             "*" to false,

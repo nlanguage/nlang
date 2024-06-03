@@ -4,6 +4,7 @@ enum class TokenType
     NUMERIC,
     BOOLEAN,
     CHARACTER,
+    STRING,
     FUN,
     EXTERN,
     RETURN,
@@ -21,7 +22,6 @@ enum class TokenType
     COMMA,
     COLON,
     ARROW,
-    SQUOTE,
     EOF,
 }
 
@@ -186,7 +186,7 @@ class Lexer(private val input: String)
             return currentText
         }
 
-        val cur = advance()
+        var cur = advance()
 
         lookahead = when (cur)
         {
@@ -200,7 +200,27 @@ class Lexer(private val input: String)
             ','              -> Token(TokenType.COMMA,  cur.toString(), FilePos(line, col))
             ':'              -> Token(TokenType.COLON,  cur.toString(), FilePos(line, col))
             '='              -> Token(TokenType.EQUALS, cur.toString(), FilePos(line, col))
-            '\''             -> Token(TokenType.SQUOTE, cur.toString(), FilePos(line, col))
+
+            '\''             ->
+            {
+                val value = advance().toString()
+
+                if (advance() != '\'')
+                {
+                    reportError("lex", FilePos(line, col), "Expected ''' to terminate char literal")
+                }
+
+                Token(TokenType.CHARACTER, value, FilePos(line, col))
+            }
+
+            '"'              ->
+            {
+                val start = pos
+
+                while (advance() != '"') {}
+
+                Token(TokenType.STRING, input.substring(start, pos - 1), FilePos(line, col))
+            }
 
             '-'              ->
             {

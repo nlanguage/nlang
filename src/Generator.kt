@@ -44,7 +44,13 @@ class Generator(private val root: Program)
         val builtProto = StringBuilder()
 
         builtProto.append("int ${proto.name}(")
-        builtProto.append(proto.args.joinToString(", ") { "${it.type} ${it.name}" })
+        builtProto.append(proto.args.joinToString(", ")
+        {
+            val type = cTypes[it.type] ?:
+                throw InternalCompilerException("Unable tp find c-type for ${it.type}")
+
+            "$type ${it.name}"
+        })
         builtProto.append(")")
 
         output.append(builtProto)
@@ -73,32 +79,30 @@ class Generator(private val root: Program)
         output.append("}\n\n")
     }
 
-    private fun genAssignStatement(statement: AssignStatement)
+    private fun genAssignStatement(stmnt: AssignStatement)
     {
-        output.append(statement.name)
-        output.append('=')
-        genExpr(statement.expr)
+        output.append("${stmnt.name} =")
+        genExpr(stmnt.expr)
     }
 
-    private fun genDeclarationStatement(statement: DeclareStatement)
+    private fun genDeclarationStatement(stmnt: DeclareStatement)
     {
-        output.append(statement.type)
-        output.append(" ")
-        output.append(statement.name)
-        output.append(" = ")
-        genExpr(statement.expr)
+        val type = cTypes[stmnt.type] ?:
+            throw InternalCompilerException("Unable tp find c-type for ${stmnt.type}")
+
+        output.append("$type ${stmnt.name} =")
+        genExpr(stmnt.expr)
     }
 
-
-    private fun genExprStatement(statement: ExprStatement)
+    private fun genExprStatement(stmnt: ExprStatement)
     {
-        genExpr(statement.expr)
+        genExpr(stmnt.expr)
     }
 
-    private fun genReturnStatement(statement: ReturnStatement)
+    private fun genReturnStatement(stmnt: ReturnStatement)
     {
         output.append("return ")
-        genExpr(statement.expr)
+        genExpr(stmnt.expr)
     }
 
     private fun genExpr(expr: Expr)
@@ -111,6 +115,7 @@ class Generator(private val root: Program)
             is CallExpr     -> genCallExpr(expr)
             is BooleanExpr  -> genBooleanExpr(expr)
             is CharExpr     -> genCharExpr(expr)
+            is StringExpr   -> genStringExpr(expr)
             else            -> throw InternalCompilerException("Unimplemented codegen")
         }
     }
@@ -126,9 +131,7 @@ class Generator(private val root: Program)
 
     private fun genCallExpr(expr: CallExpr)
     {
-        output.append(expr.callee)
-
-        output.append("(")
+        output.append("${expr.callee} (")
 
         for (arg in expr.args)
         {
@@ -140,6 +143,12 @@ class Generator(private val root: Program)
 
         output.append(")")
     }
+
+    private fun genStringExpr(expr: StringExpr)
+    {
+        output.append("\"${expr.value}\"")
+    }
+
 
     private fun genCharExpr(expr: CharExpr)
     {
@@ -160,4 +169,11 @@ class Generator(private val root: Program)
     {
         output.append(expr.name)
     }
+
+    private val cTypes = mapOf(
+        "char"   to "char",
+        "bool"   to "bool",
+        "int"    to "int",
+        "string" to "char*",
+    )
 }

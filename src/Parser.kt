@@ -208,7 +208,8 @@ class Parser(private val lexer: Lexer)
             TokenType.NUMERIC    -> parseNumeric()
             TokenType.LPAREN     -> parseParen()
             TokenType.BOOLEAN    -> parseBoolean()
-            TokenType.SQUOTE     -> parseChar()
+            TokenType.CHARACTER  -> parseChar()
+            TokenType.STRING     -> parseString()
             else -> reportParseError(expected = "expression")
         }
     }
@@ -226,17 +227,16 @@ class Parser(private val lexer: Lexer)
         return inner
     }
 
+    private fun parseString(): Expr
+    {
+        val pos = lexer.current.filePos
+        return StringExpr(lexer.eat(), pos)
+    }
+
     private fun parseChar(): Expr
     {
         val pos = lexer.current.filePos
-
-        lexer.eat()
-
-        val value = lexer.eat()[0]
-
-        lexer.eatOnMatch("'")
-
-        return CharExpr(value, pos)
+        return CharExpr(lexer.eat()[0], pos)
     }
 
     private fun parseBoolean(): Expr
