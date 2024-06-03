@@ -1,20 +1,28 @@
 enum class TokenType
 {
+    VAL,
+    VAR,
+    FUN,
+    EXTERN,
+    RETURN,
+    IF,
+    ELSE,
+    ASSIGN,
+    EQUALS,
+    NOT_EQUALS,
+    LESS_THAN,
+    GREATER_THAN,
+    LESS_THAN_EQUAL_TO,
+    GREATER_THAN_EQUAL_TO,
     IDENTIFIER,
     NUMERIC,
     BOOLEAN,
     CHARACTER,
     STRING,
-    FUN,
-    EXTERN,
-    RETURN,
-    VAL,
-    VAR,
     ADD,
     SUB,
     MUL,
     DIV,
-    EQUALS,
     LPAREN,
     RPAREN,
     LBRACE,
@@ -137,6 +145,8 @@ class Lexer(private val input: String)
             "return" -> TokenType.RETURN
             "val"    -> TokenType.VAL
             "var"    -> TokenType.VAR
+            "if"     -> TokenType.IF
+            "else"   -> TokenType.ELSE
 
             "true",
             "false"  -> TokenType.BOOLEAN
@@ -199,7 +209,63 @@ class Lexer(private val input: String)
             '('              -> Token(TokenType.LPAREN, cur.toString(), FilePos(line, col))
             ','              -> Token(TokenType.COMMA,  cur.toString(), FilePos(line, col))
             ':'              -> Token(TokenType.COLON,  cur.toString(), FilePos(line, col))
-            '='              -> Token(TokenType.EQUALS, cur.toString(), FilePos(line, col))
+
+            '='              ->
+            {
+                if (peek() == '=')
+                {
+                    // Consume '='
+                    advance()
+                    Token(TokenType.EQUALS, "==", FilePos(line, col))
+                }
+                else
+                {
+                    Token(TokenType.ASSIGN, cur.toString(), FilePos(line, col))
+                }
+            }
+
+            '>'              ->
+            {
+                if (peek() == '=')
+                {
+                    // Consume '='
+                    advance()
+                    Token(TokenType.GREATER_THAN_EQUAL_TO, ">=", FilePos(line, col))
+                }
+                else
+                {
+                    Token(TokenType.GREATER_THAN, cur.toString(), FilePos(line, col))
+                }
+            }
+
+            '<'              ->
+            {
+                if (peek() == '=')
+                {
+                    // Consume '='
+                    advance()
+                    Token(TokenType.LESS_THAN_EQUAL_TO, "<=", FilePos(line, col))
+                }
+                else
+                {
+                    Token(TokenType.LESS_THAN, cur.toString(), FilePos(line, col))
+                }
+            }
+
+            '!'              ->
+            {
+                if (peek() == '=')
+                {
+                    // Consume '='
+                    advance()
+                    Token(TokenType.NOT_EQUALS, "!=", FilePos(line, col))
+                }
+                else
+                {
+                    reportError("lex", FilePos(line, col), "Unexpected character '$cur'")
+                }
+
+            }
 
             '\''             ->
             {

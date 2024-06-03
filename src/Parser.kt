@@ -81,8 +81,7 @@ class Parser(private val lexer: Lexer)
 
     private fun parseBlock(): Block
     {
-        // consume '{'
-        lexer.eat()
+        lexer.eatOnMatch("{")
 
         val statements = mutableListOf<Statement>()
 
@@ -95,9 +94,11 @@ class Parser(private val lexer: Lexer)
                 TokenType.VAL,
                 TokenType.VAR        -> statements += parseDeclarationStatement()
 
+                TokenType.IF         -> statements += parseIfStatement()
+
                 TokenType.IDENTIFIER ->
                 {
-                    if (lexer.lookahead.type == TokenType.EQUALS)
+                    if (lexer.lookahead.type == TokenType.ASSIGN)
                     {
                         statements += parseAssignStatement()
                     }
@@ -111,10 +112,47 @@ class Parser(private val lexer: Lexer)
             }
         }
 
-        // consume '}'
-        lexer.eat()
+        lexer.eatOnMatch("}")
 
         return Block(statements)
+    }
+
+    private fun parseIfStatement(): Statement
+    {
+        val branches = mutableListOf<Branch>()
+
+        branches += parseBranch()
+
+        var elseBlock: Block? = null
+        while (lexer.current.type == TokenType.ELSE)
+        {
+            // Consume 'else'
+            lexer.eat()
+
+            if (lexer.current.type == TokenType.IF)
+            {
+                branches += parseBranch()
+            }
+            else
+            {
+                elseBlock = parseBlock()
+            }
+        }
+
+        return IfStatement(branches, elseBlock)
+    }
+
+    private fun parseBranch(): Branch
+    {
+        // Consume 'if'
+        lexer.eat()
+
+        lexer.eatOnMatch("(")
+        val expr = parseExpr()
+        lexer.eatOnMatch(")")
+        val block = parseBlock()
+
+        return Branch(expr, block)
     }
 
     private fun parseAssignStatement(): Statement
@@ -248,7 +286,7 @@ class Parser(private val lexer: Lexer)
     {
         val pos = lexer.current.filePos
 
-        return BooleanExpr(lexer.eat().equals("true"), pos)
+        return BooleanExpr(lexer.eat() == "true", pos)
     }
 
     private fun parseNumeric(): Expr
@@ -301,15 +339,21 @@ class Parser(private val lexer: Lexer)
     // Get the precedence of the current token (lexer.currentTok)
     private fun getCurTokPrecedence(): Int
     {
-        // -1 is used a comparison
+        // -1 is used in a comparison
         return opPrecedence[lexer.current.text] ?: -1
     }
 
     private val opPrecedence = mapOf(
-        "*" to 40,
-        "/" to 40,
-        "-" to 20,
-        "+" to 20,
+        "==" to 50,
+        "!=" to 50,
+        ">"  to 50,
+        "<"  to 50,
+        ">=" to 50,
+        "<=" to 50,
+        "*"  to 40,
+        "/"  to 40,
+        "-"  to 20,
+        "+"  to 20,
     )
 
     private fun reportParseError(expected: String): Nothing

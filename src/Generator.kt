@@ -70,6 +70,7 @@ class Generator(private val root: Program)
                 is ExprStatement    -> genExprStatement(statement)
                 is DeclareStatement -> genDeclarationStatement(statement)
                 is AssignStatement  -> genAssignStatement(statement)
+                is IfStatement      -> genIfStatement(statement)
                 else                -> throw InternalCompilerException("Unhandled statement")
             }
 
@@ -77,6 +78,31 @@ class Generator(private val root: Program)
         }
 
         output.append("}\n\n")
+    }
+
+    private fun genIfStatement(stmnt: IfStatement)
+    {
+        // Generate primary branch
+        output.append("if (")
+        genExpr(stmnt.branches[0].expr)
+        output.append(")")
+        genBlock(stmnt.branches[0].block)
+
+        // Generate alternative branches
+        for (i in 1..<stmnt.branches.size)
+        {
+            output.append("else if (")
+            genExpr(stmnt.branches[i].expr)
+            output.append(")")
+            genBlock(stmnt.branches[i].block)
+        }
+
+        // Generate final branch
+        if (stmnt.elseBlock != null)
+        {
+            output.append("\nelse")
+            genBlock(stmnt.elseBlock)
+        }
     }
 
     private fun genAssignStatement(stmnt: AssignStatement)

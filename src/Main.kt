@@ -33,7 +33,7 @@ fun main(args: Array<String>)
 
     clangInputFile.writeText(clangInput)
 
-    val clangProcess = ProcessBuilder("clang", "-Wno-unused-value", "-o", args[1], clangInputFile.path, "stdlib.c")
+    val clangProcess = ProcessBuilder("clang", "-Wno-unused-value", "-Wno-parentheses-equality", "-o", args[1], clangInputFile.path, "stdlib.c")
         .inheritIO()
         .start()
 

@@ -10,7 +10,20 @@ fun print_string(a: string)
 // Main function
 fun main() -> int
 {
-    val a = a == 5
+    val a = 5
+
+    if (a > 5)
+    {
+        print_string("A is greater than 5")
+    }
+    else if (a == 5)
+    {
+        print_string("A is equal to 5")
+    }
+    else
+    {
+        print_string("A is not greater than 5")
+    }
 
     return 0
 }

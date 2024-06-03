@@ -51,8 +51,28 @@ class Checker(private val root: Program)
                 is DeclareStatement -> checkDeclarationStatement(stmnt, scope)
                 is ReturnStatement  -> checkReturnStatement(stmnt, proto, scope)
                 is ExprStatement    -> checkExprStatement(stmnt, scope)
+                is IfStatement      -> checkIfStatement(stmnt, proto, scope)
                 else                -> throw InternalCompilerException("Unchecked statement")
             }
+        }
+    }
+
+    private fun checkIfStatement(stmnt: IfStatement, proto: Prototype, scope: Scope)
+    {
+        for (branch in stmnt.branches)
+        {
+            val exprType = checkExpr(branch.expr, scope)
+            if (exprType != "bool")
+            {
+                reportError("check", branch.expr.pos, "expected boolean expression, found '$exprType'")
+            }
+
+            checkBlock(branch.block, proto, scope)
+        }
+
+        if (stmnt.elseBlock != null)
+        {
+            checkBlock(stmnt.elseBlock, proto, scope)
         }
     }
 
@@ -145,23 +165,28 @@ class Checker(private val root: Program)
             reportError("check", expr.pos, "Cannot perform '${expr.op}' on type '$lhs'")
         }
 
-        return lhs
+        return ops[expr.op]!!
     }
 
     private fun checkCallExpr(expr: CallExpr, scope: Scope): String
     {
-        val func = syms[expr.callee] ?:
+        val proto = syms[expr.callee] ?:
             reportError("check", expr.pos, "Function '${expr.callee}' doesn't exist in the current scope")
 
         for (i in 0..<expr.args.size)
         {
-            if (func.args[i].type != checkExpr(expr.args[i], scope))
+            val exprType = checkExpr(expr.args[i], scope)
+            if (proto.args[i].type != exprType)
             {
-                reportError("check", expr.args[i].pos, "Function '${expr.callee}' doesn't exist in the current scope")
+                reportError(
+                    "check",
+                    expr.args[i].pos,
+                    "Expected type '${proto.args[i].type}' for parameter '${proto.args[i].name}' but found $exprType"
+                )
             }
         }
 
-        return func.returnType
+        return proto.returnType
     }
 
     private fun checkVariableExpr(expr: VariableExpr, scope: Scope): String
@@ -174,31 +199,43 @@ class Checker(private val root: Program)
 
     private val possibleOps = mapOf(
         "int" to mapOf(
-            "+" to true,
-            "-" to true,
-            "*" to true,
-            "/" to true,
+            "+"  to "int",
+            "-"  to "int",
+            "*"  to "int",
+            "/"  to "int",
+            "==" to "bool",
+            "!=" to "bool",
+            ">"  to "bool",
+            "<"  to "bool",
+            ">=" to "bool",
+            "<=" to "bool",
         ),
 
         "bool" to mapOf(
-            "+" to false,
-            "-" to false,
-            "*" to false,
-            "/" to false,
+            "==" to "bool",
+            "!=" to "bool",
+            ">"  to "bool",
+            "<"  to "bool",
+            ">=" to "bool",
+            "<=" to "bool",
         ),
 
         "char" to mapOf(
-            "+" to false,
-            "-" to false,
-            "*" to false,
-            "/" to false,
+            "==" to "bool",
+            "!=" to "bool",
+            ">"  to "bool",
+            "<"  to "bool",
+            ">=" to "bool",
+            "<=" to "bool",
         ),
 
         "string" to mapOf(
-            "+" to false,
-            "-" to false,
-            "*" to false,
-            "/" to false,
+            "==" to "bool",
+            "!=" to "bool",
+            ">"  to "bool",
+            "<"  to "bool",
+            ">=" to "bool",
+            "<=" to "bool",
         )
     )
 }
