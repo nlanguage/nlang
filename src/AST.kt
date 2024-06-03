@@ -1,19 +1,23 @@
-sealed class Expr
-data class VariableExpr(val name: String): Expr()
-data class NumberExpr(val value: Number): Expr()
-data class CallExpr(val callee: String, val args: List<Expr>): Expr()
-data class BinaryExpr(val left: Expr, val op: String, val right: Expr): Expr()
+data class Block(val statements: List<Statement>)
+data class Pair(val name: String, val type: String)
+data class Prototype(val name: String, val args: List<Pair>, val returnType: String)
+
+sealed class Expr(open val pos: FilePos)
+data class VariableExpr(val name: String, override val pos: FilePos): Expr(pos)
+data class NumberExpr(val value: Number, override val pos: FilePos): Expr(pos)
+data class BooleanExpr(val value: Boolean, override val pos: FilePos): Expr(pos)
+data class CharExpr(val value: Char, override val pos: FilePos): Expr(pos)
+data class CallExpr(val callee: String, val args: List<Expr>, override val pos: FilePos): Expr(pos)
+data class BinaryExpr(val left: Expr, val op: String, val right: Expr, override val pos: FilePos): Expr(pos)
 
 sealed class Statement
 data class ReturnStatement(val expr: Expr): Statement()
 data class ExprStatement(val expr: Expr): Statement()
-data class DeclareStatement(val mutable: Boolean, val name: String, val expr: Expr): Statement()
+data class DeclareStatement(val mutable: Boolean, val name: String, var type: String?, val expr: Expr): Statement()
 data class AssignStatement(val name: String, val expr: Expr): Statement()
 
-data class Block(val statements: List<Statement>)
-
 sealed class AstNode
-data class Prototype(val name: String, val args: List<String>): AstNode()
+data class Extern(val proto: Prototype): AstNode()
 data class Function(val proto: Prototype, val body: Block): AstNode()
 
 data class Program(val nodes: List<AstNode>)

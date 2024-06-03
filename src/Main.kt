@@ -20,7 +20,11 @@ fun main(args: Array<String>)
 
     // Parse and generate c code
     val parser = Parser(lexer);
-    val generator = Generator(parser.parseProgram())
+    val program = parser.parseProgram()
+
+    Checker(program).check()
+
+    val generator = Generator(program)
     val clangInput = generator.generate()
 
     // Write generated c code to a file to pass to clang

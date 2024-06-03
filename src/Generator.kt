@@ -1,5 +1,3 @@
-
-
 class Generator(private val root: Program)
 {
     private val output = StringBuilder()
@@ -10,40 +8,43 @@ class Generator(private val root: Program)
         {
             when (node)
             {
-                is Function  -> visitFunction(node)
-                is Prototype -> visitExtern(node)
+                is Function  -> genFunction(node)
+                is Extern    -> genExtern(node)
                 else         -> throw InternalCompilerException("Unhandled top-level node")
             }
         }
 
+        // Includes
+        output.insert(0, "#include<stdbool.h>\n\n")
+
         return output.toString()
     }
 
-    private fun visitFunction(func: Function)
+    private fun genFunction(func: Function)
     {
-        val decl = visitPrototype(func.proto)
+        val decl = genPrototype(func.proto)
 
-        visitBlock(func.body)
+        genBlock(func.body)
 
         // Insert function declaration at the top. This is needed as C needs forward declarations
         output.insert(0, decl + ";")
     }
 
-    private fun visitExtern(proto: Prototype)
+    private fun genExtern(extern: Extern)
     {
         output.append("extern ")
-        visitPrototype(proto)
+        genPrototype(extern.proto)
         output.append(";\n\n")
     }
 
     // Prototype is returned for optional use,
     // this is needed because of forward-decls in c
-    private fun visitPrototype(proto: Prototype): String
+    private fun genPrototype(proto: Prototype): String
     {
         val builtProto = StringBuilder()
 
         builtProto.append("int ${proto.name}(")
-        builtProto.append(proto.args.joinToString(",") { "int $it" })
+        builtProto.append(proto.args.joinToString(", ") { "${it.type} ${it.name}" })
         builtProto.append(")")
 
         output.append(builtProto)
@@ -51,7 +52,7 @@ class Generator(private val root: Program)
         return builtProto.toString();
     }
 
-    private fun visitBlock(block: Block)
+    private fun genBlock(block: Block)
     {
         output.append("\n{\n")
 
@@ -59,67 +60,71 @@ class Generator(private val root: Program)
         {
             when (statement)
             {
-                is ReturnStatement  -> visitReturnStatement(statement)
-                is ExprStatement    -> visitExprStatement(statement)
-                is DeclareStatement -> visitDeclarationStatement(statement)
-                is AssignStatement  -> visitAssignStatement(statement)
+                is ReturnStatement  -> genReturnStatement(statement)
+                is ExprStatement    -> genExprStatement(statement)
+                is DeclareStatement -> genDeclarationStatement(statement)
+                is AssignStatement  -> genAssignStatement(statement)
                 else                -> throw InternalCompilerException("Unhandled statement")
             }
 
             output.append(";\n")
         }
 
-        output.append("\n}\n")
+        output.append("}\n\n")
     }
 
-    private fun visitAssignStatement(statement: AssignStatement)
+    private fun genAssignStatement(statement: AssignStatement)
     {
         output.append(statement.name)
         output.append('=')
-        visitExpr(statement.expr)
+        genExpr(statement.expr)
     }
 
-    private fun visitDeclarationStatement(statement: DeclareStatement)
+    private fun genDeclarationStatement(statement: DeclareStatement)
     {
-        output.append("int ")
+        output.append(statement.type)
+        output.append(" ")
         output.append(statement.name)
         output.append(" = ")
-        visitExpr(statement.expr)
+        genExpr(statement.expr)
     }
 
 
-    private fun visitExprStatement(statement: ExprStatement)
+    private fun genExprStatement(statement: ExprStatement)
     {
-        visitExpr(statement.expr)
+        genExpr(statement.expr)
     }
 
-    private fun visitReturnStatement(statement: ReturnStatement)
+    private fun genReturnStatement(statement: ReturnStatement)
     {
         output.append("return ")
-        visitExpr(statement.expr)
+        genExpr(statement.expr)
     }
 
-    private fun visitExpr(expr: Expr)
+    private fun genExpr(expr: Expr)
     {
         when (expr)
         {
-            is BinaryExpr   -> visitBinaryExpr(expr)
-            is NumberExpr   -> visitNumberExpr(expr)
-            is VariableExpr -> visitVariableExpr(expr)
-            is CallExpr     -> visitCallExpr(expr)
+            is BinaryExpr   -> genBinaryExpr(expr)
+            is NumberExpr   -> genNumberExpr(expr)
+            is VariableExpr -> genVariableExpr(expr)
+            is CallExpr     -> genCallExpr(expr)
+            is BooleanExpr  -> genBooleanExpr(expr)
+            is CharExpr     -> genCharExpr(expr)
+            else            -> throw InternalCompilerException("Unimplemented codegen")
         }
     }
 
-    private fun visitBinaryExpr(expr: BinaryExpr)
+    private fun genBinaryExpr(expr: BinaryExpr)
     {
         output.append("(")
-        visitExpr(expr.left)
+        genExpr(expr.left)
         output.append(expr.op)
-        visitExpr(expr.right)
+        genExpr(expr.right)
         output.append(")")
     }
 
-    private fun visitCallExpr(expr: CallExpr)
+    private fun genCallExpr(expr: CallExpr)
     {
         output.append(expr.callee)
 
@@ -127,21 +132,31 @@ class Generator(private val root: Program)
 
         for (arg in expr.args)
         {
-            visitExpr(arg)
+            genExpr(arg)
 
             if (arg !== expr.args.last())
-            output.append(",")
+                output.append(",")
         }
 
         output.append(")")
     }
 
-    private fun visitNumberExpr(expr: NumberExpr)
+    private fun genCharExpr(expr: CharExpr)
+    {
+        output.append("'${expr.value}'")
+    }
+
+    private fun genBooleanExpr(expr: BooleanExpr)
+    {
+        output.append(expr.value.toString())
+    }
+
+    private fun genNumberExpr(expr: NumberExpr)
     {
         output.append(expr.value)
     }
 
-    private fun visitVariableExpr(expr: VariableExpr)
+    private fun genVariableExpr(expr: VariableExpr)
     {
         output.append(expr.name)
     }

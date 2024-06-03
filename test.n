@@ -1,9 +1,31 @@
-extern fun print_int(a)
+@extern
+fun print_int(a: int) -> void
+@extern
+fun print_char(a: char) -> void
+@extern
+fun print_bool(a: bool) -> void
 
-fun main()
+fun multiply(a: int, b: int) -> int
 {
-    var a = 2
-    print_int(a)
-    a = 5
-    print_int(a)
+    return a * b
+}
+
+fun main() -> int
+{
+    var a: int = 2
+    var b: int = 4
+
+    var c: int = multiply(a, b)
+
+    print_int(c)
+
+    var x: bool = true
+    var y = 'h'
+
+    y = 2
+
+    print_bool(x)
+    print_char(y)
+
+    return c
 }

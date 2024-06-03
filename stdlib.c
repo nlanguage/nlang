@@ -1,8 +1,24 @@
 #include <stdio.h>
+#include <stdbool.h>
 
-int print_int(int number)
+void print_int(int integer)
 {
-    printf("%d\n", number);
+    printf("%d\n", integer);
+}
 
-    return 0;
+void print_char(char character)
+{
+    printf("%c\n", character);
+}
+
+void print_bool(bool boolean)
+{
+    if (boolean)
+    {
+        printf("true\n");
+    }
+    else
+    {
+        printf("false\n");
+    }
 }

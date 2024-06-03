@@ -9,14 +9,14 @@ class Parser(private val lexer: Lexer)
             {
                 TokenType.EXTERN -> nodes += parseExtern()
                 TokenType.FUN    -> nodes += parseDefinition()
-                else             -> reportParseError("'fun' or 'extern'")
+                else             -> reportParseError(expected = "'fun' or 'extern'")
             }
         }
 
         return Program(nodes)
     }
 
-    private fun parseExtern(): Prototype
+    private fun parseExtern(): Extern
     {
         // Consume 'extern'
         lexer.eat()
@@ -24,7 +24,7 @@ class Parser(private val lexer: Lexer)
         // Consume 'fun'
         lexer.eat()
 
-        return parsePrototype()
+        return Extern(parsePrototype())
     }
 
     private fun parseDefinition(): Function
@@ -41,44 +41,37 @@ class Parser(private val lexer: Lexer)
 
     private fun parsePrototype(): Prototype
     {
-        val name = lexer.current.text
+        val name = lexer.eat()
 
-        // Consume identifier
-        lexer.eat()
+        lexer.eatOnMatch("(")
 
-        if (lexer.current.type != TokenType.LPAREN)
-        {
-            reportParseError("'('")
-        }
-
-        // Consume '('
-        lexer.eat()
-
-        val args = mutableListOf<String>()
+        val args = mutableListOf<Pair>()
         if (lexer.current.type != TokenType.RPAREN) {
             while (true) {
-                args += lexer.current.text
+                val name = lexer.eat()
 
-                // Consume identifier
-                lexer.eat()
+                lexer.eatOnMatch(":")
+
+                val type = lexer.eat()
+
+                args += Pair(name, type)
 
                 if (lexer.current.type == TokenType.RPAREN) {
                     break;
                 }
 
-                if (lexer.current.type != TokenType.COMMA) {
-                    reportParseError("','")
-                }
-
-                // Consume ','
-                lexer.eat()
+                lexer.eatOnMatch(",")
             }
         }
 
         // Consume ')'
         lexer.eat()
 
-        return Prototype(name, args)
+        lexer.eatOnMatch("->")
+
+        val returnType = lexer.eat()
+
+        return Prototype(name, args, returnType)
     }
 
     private fun parseBlock(): Block
@@ -109,7 +102,7 @@ class Parser(private val lexer: Lexer)
                     }
                 }
 
-                else -> reportParseError("statement")
+                else -> reportParseError(expected = "statement")
             }
         }
 
@@ -121,18 +114,9 @@ class Parser(private val lexer: Lexer)
 
     private fun parseAssignStatement(): Statement
     {
-        val name = lexer.current.text
+        val name = lexer.eat()
 
-        // Consume identifier
-        lexer.eat()
-
-        if (lexer.current.type != TokenType.EQUALS)
-        {
-            reportParseError(expected = "'='")
-        }
-
-        // Consume '='
-        lexer.eat()
+        lexer.eatOnMatch("=")
 
         val expr = parseExpr()
 
@@ -145,28 +129,28 @@ class Parser(private val lexer: Lexer)
         {
             TokenType.VAL -> false
             TokenType.VAR -> true
-            else          -> reportParseError("'val' or 'var'")
+            else          -> throw InternalCompilerException("Branch should be unreachable");
         }
 
         // Consume 'val' or 'var'
         lexer.eat()
 
-        val name = lexer.current.text
+        val name = lexer.eat()
 
-        // Consume Identifier
-        lexer.eat()
-
-        if (lexer.current.type != TokenType.EQUALS)
+        var type: String? = null
+        if (lexer.current.type == TokenType.COLON)
         {
-            reportParseError("'='")
+            // Consume ':'
+            lexer.eat()
+
+            type = lexer.eat()
         }
 
-        // Consume '='
-        lexer.eat()
+        lexer.eatOnMatch("=")
 
         val expr = parseExpr()
 
-        return DeclareStatement(mutable, name, expr)
+        return DeclareStatement(mutable, name, type, expr)
     }
 
     private fun parseReturnStatement(): Statement
@@ -199,10 +183,9 @@ class Parser(private val lexer: Lexer)
                 return lhs
             }
 
-            val operator = lexer.current.text
+            val opPos = lexer.current.filePos
 
-            // Consume binary operator ('+', '-', etc.)
-            lexer.eat()
+            val operator = lexer.eat()
 
             var rhs = parsePrimary()
 
@@ -213,7 +196,7 @@ class Parser(private val lexer: Lexer)
                 rhs = parseBinOpRhs(tokPrec + 1, rhs)
             }
 
-            lhs = BinaryExpr(lhs, operator, rhs)
+            lhs = BinaryExpr(lhs, operator, rhs, opPos)
         }
     }
 
@@ -224,7 +207,9 @@ class Parser(private val lexer: Lexer)
             TokenType.IDENTIFIER -> parseIdent()
             TokenType.NUMERIC    -> parseNumeric()
             TokenType.LPAREN     -> parseParen()
-            else -> reportParseError("expression")
+            TokenType.BOOLEAN    -> parseBoolean()
+            TokenType.SQUOTE     -> parseChar()
+            else -> reportParseError(expected = "expression")
         }
     }
 
@@ -236,39 +221,49 @@ class Parser(private val lexer: Lexer)
         // parseExpr() will consume any tokens between '(' and ')'
         val inner = parseExpr()
 
-        if (lexer.current.type != TokenType.RPAREN)
-        {
-            reportParseError("')'")
-        }
-
-        // Consume ')'
-        lexer.eat()
+        lexer.eatOnMatch(")")
 
         return inner
     }
 
-    private fun parseNumeric(): Expr
+    private fun parseChar(): Expr
     {
-        val result = NumberExpr(lexer.current.text.toBigDecimal());
+        val pos = lexer.current.filePos
 
-        // Consume Number
         lexer.eat()
 
-        return result
+        val value = lexer.eat()[0]
+
+        lexer.eatOnMatch("'")
+
+        return CharExpr(value, pos)
+    }
+
+    private fun parseBoolean(): Expr
+    {
+        val pos = lexer.current.filePos
+
+        return BooleanExpr(lexer.eat().equals("true"), pos)
+    }
+
+    private fun parseNumeric(): Expr
+    {
+        val pos = lexer.current.filePos
+
+        return NumberExpr(lexer.eat().toBigDecimal(), pos);
     }
 
     // Parses either a variable or a function call
     private fun parseIdent(): Expr
     {
-        val ident = lexer.current.text
+        val pos = lexer.current.filePos
 
-        // Consume Identifier
-        lexer.eat()
+        val ident = lexer.eat()
 
         // Variable
         if (lexer.current.type != TokenType.LPAREN)
         {
-            return VariableExpr(ident)
+            return VariableExpr(ident, pos)
         }
 
         // Function call
@@ -288,20 +283,14 @@ class Parser(private val lexer: Lexer)
                     break;
                 }
 
-                if (lexer.current.type != TokenType.COMMA)
-                {
-                    reportParseError("','")
-                }
-
-                // Consume ','
-                lexer.eat()
+                lexer.eatOnMatch(",")
             }
         }
 
         // Consume ')'
         lexer.eat()
 
-        return CallExpr(ident, args)
+        return CallExpr(ident, args, pos)
     }
 
     // Get the precedence of the current token (lexer.currentTok)
@@ -320,6 +309,6 @@ class Parser(private val lexer: Lexer)
 
     private fun reportParseError(expected: String): Nothing
     {
-        reportError("Parsing", lexer.current.filePos, "Expected $expected but found '${lexer.current.text}'")
+        reportError("parse", lexer.current.filePos, "Expected $expected but found '${lexer.current.text}'")
     }
 }
