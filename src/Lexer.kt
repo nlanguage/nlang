@@ -76,7 +76,31 @@ class Lexer(private val input: String)
 
     private fun skipWhitespace()
     {
-        while (!isAtEnd() && peek().isWhitespace())
+        while (!isAtEnd()) {
+            when (peek())
+            {
+                ' ', '\n', '\r', '\t' -> advance()
+
+                '/' ->
+                {
+                    if (pos + 1 < len && input[pos + 1] == '/')
+                    {
+                        skipComment()
+                    }
+                    else
+                    {
+                        return
+                    }
+                }
+
+                else -> return
+            }
+        }
+    }
+
+    private fun skipComment()
+    {
+        while (!isAtEnd() && peek() != '\n')
         {
             advance()
         }

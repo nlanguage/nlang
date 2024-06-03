@@ -1,4 +1,6 @@
-typealias Scope = HashMap<String, String>
+data class Variable(val type: String, val mutable: Boolean)
+
+typealias Scope = HashMap<String, Variable>
 
 typealias SymbolTable = HashMap<String, Prototype>
 
@@ -30,7 +32,7 @@ class Checker(private val root: Program)
 
         for (arg in func.proto.args)
         {
-            scope[arg.name] = arg.type
+            scope[arg.name] = Variable(arg.type, false)
         }
 
         registerPrototype(func.proto)
@@ -57,13 +59,16 @@ class Checker(private val root: Program)
     private fun checkAssignStatement(stmnt: AssignStatement, scope: Scope)
     {
         val lhs = scope[stmnt.name] ?:
-            reportError("check", stmnt.expr.pos, "Variable ${stmnt.name} not declared in this scope")
+            reportError("check", stmnt.expr.pos, "Variable '${stmnt.name}' not declared in this scope")
+
+        if (!lhs.mutable)
+        {
+            reportError("check", stmnt.expr.pos, "Variable '${stmnt.name}' is immutable")
+        }
 
         val rhs = checkExpr(stmnt.expr, scope)
 
-        // TODO: Mutability
-
-        if (lhs != rhs)
+        if (lhs.type != rhs)
         {
             reportError(
                 "check",
@@ -90,7 +95,7 @@ class Checker(private val root: Program)
             stmnt.type = rhs
         }
 
-        scope[stmnt.name] = stmnt.type!!
+        scope[stmnt.name] = Variable(stmnt.type!!, stmnt.mutable)
     }
 
     private fun checkExprStatement(stmnt: ExprStatement, scope: Scope)
@@ -160,8 +165,10 @@ class Checker(private val root: Program)
 
     private fun checkVariableExpr(expr: VariableExpr, scope: Scope): String
     {
-        return scope[expr.name] ?:
+        val variable = scope[expr.name]?:
             reportError("check", expr.pos, "Variable '${expr.name}' doesn't exist in the current scope")
+
+        return variable.type
     }
 
     val possibleOps = mapOf(
