@@ -1,17 +1,16 @@
 @extern
-fun print_int(a: int) -> void
+fun print_int(a: int)
 @extern
-fun print_char(a: char) -> void
+fun print_char(a: char)
 @extern
-fun print_bool(a: bool) -> void
+fun print_bool(a: bool)
 @extern
-fun print_string(a: string) -> void
+fun print_string(a: string)
 
 // Main function
 fun main() -> int
 {
-    var a = 'h'
-    var b = "Hello World"
+    val a = a == 5
 
-    print_string(b)
+    return 0
 }

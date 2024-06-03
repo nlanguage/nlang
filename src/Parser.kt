@@ -67,9 +67,14 @@ class Parser(private val lexer: Lexer)
         // Consume ')'
         lexer.eat()
 
-        lexer.eatOnMatch("->")
+        var returnType = "void"
+        if (lexer.current.type == TokenType.ARROW)
+        {
+            // Consume '->'
+            lexer.eat()
 
-        val returnType = lexer.eat()
+            returnType = lexer.eat()
+        }
 
         return Prototype(name, args, returnType)
     }
