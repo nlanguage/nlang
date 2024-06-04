@@ -11,7 +11,7 @@ class Checker(private val root: Program)
         {
             when (node)
             {
-                is Function  -> registerPrototype(node.proto)
+                is Function  -> registerFunction(node.proto)
                 is Extern    -> registerExtern(node.proto)
             }
         }
@@ -27,23 +27,51 @@ class Checker(private val root: Program)
 
     private fun registerExtern(proto: Prototype)
     {
+        // Function redefinition not allowed
+        if (root.syms[proto.name] != null)
+        {
+            reportError(
+                "check",
+                proto.pos,
+                "Multiple definitions of '${proto.name}' with the same parameters is not allowed"
+            )
+        }
+
         root.syms[proto.name] = proto
     }
 
-    private fun registerPrototype(proto: Prototype)
+    private fun registerFunction(proto: Prototype)
     {
-        val protoName = StringBuilder(proto.name)
+        val mangled = StringBuilder("_Z${proto.name}")
 
         for (arg in proto.args)
         {
-            protoName.append("_${arg.type}")
+            mangled.append("_${arg.type}")
         }
 
-        val protoNameBuilt = protoName.toString()
+        // Don't mangle main
+        val protoName = if (proto.name == "main")
+        {
+            "main"
+        }
+        else
+        {
+            mangled.toString()
+        }
 
-        proto.name = protoNameBuilt
+        // Function redefinition not allowed
+        if (root.syms[protoName] != null)
+        {
+            reportError(
+                "check",
+                proto.pos,
+                "Multiple definitions of '${proto.name}' with the same parameters is not allowed"
+            )
+        }
 
-        root.syms[protoNameBuilt] = proto
+        proto.name = protoName
+
+        root.syms[protoName] = proto
     }
 
     private fun checkFunction(func: Function)
@@ -189,7 +217,7 @@ class Checker(private val root: Program)
 
     private fun checkCallExpr(expr: CallExpr, scope: Scope): String
     {
-        val calleeName = StringBuilder(expr.callee)
+        val mangled = StringBuilder("_Z${expr.callee}")
 
         val paramList = StringBuilder()
 
@@ -206,19 +234,18 @@ class Checker(private val root: Program)
                 paramList.append(exprType)
             }
 
-
-            calleeName.append("_$exprType")
+            mangled.append("_$exprType")
         }
 
-        val calleeNameBuilt = calleeName.toString()
+        val calleeName = mangled.toString()
 
         // Externs will not use the mangled name
         var useMangled = false
 
-        val proto = if (root.syms[calleeNameBuilt] != null)
+        val proto = if (root.syms[calleeName] != null)
         {
             useMangled = true;
-            root.syms[calleeNameBuilt]!!
+            root.syms[calleeName]!!
         }
         else if (root.syms[expr.callee] != null)
         {
@@ -235,7 +262,7 @@ class Checker(private val root: Program)
 
         if (useMangled)
         {
-            expr.callee = calleeNameBuilt
+            expr.callee = calleeName
         }
 
         return proto.returnType

@@ -1,6 +1,6 @@
 data class Block(val statements: List<Statement>)
 data class Pair(val name: String, val type: String)
-data class Prototype(var name: String, val args: List<Pair>, val returnType: String)
+data class Prototype(var name: String, val args: List<Pair>, val returnType: String, val pos: FilePos)
 
 sealed class Expr(open val pos: FilePos)
 data class VariableExpr(val name: String, override val pos: FilePos): Expr(pos)

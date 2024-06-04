@@ -41,6 +41,7 @@ class Parser(private val lexer: Lexer)
 
     private fun parsePrototype(): Prototype
     {
+        val pos = lexer.current.filePos
         val name = lexer.eat()
 
         lexer.eatOnMatch("(")
@@ -76,7 +77,7 @@ class Parser(private val lexer: Lexer)
             returnType = lexer.eat()
         }
 
-        return Prototype(name, args, returnType)
+        return Prototype(name, args, returnType, pos)
     }
 
     private fun parseBlock(): Block

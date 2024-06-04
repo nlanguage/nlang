@@ -29,6 +29,12 @@ fun say_hello(name: string)
     print(name)
 }
 
+fun say_hello(name: string)
+{
+    print("Hi there, ")
+    print(name)
+}
+
 fun say_hello(initial: char)
 {
     print("Hello there, ")
