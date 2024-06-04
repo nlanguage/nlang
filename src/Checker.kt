@@ -12,7 +12,7 @@ class Checker(private val root: Program)
             when (node)
             {
                 is Function  -> registerPrototype(node.proto)
-                is Extern    -> registerPrototype(node.proto)
+                is Extern    -> registerExtern(node.proto)
             }
         }
 
@@ -25,9 +25,25 @@ class Checker(private val root: Program)
         }
     }
 
-    private fun registerPrototype(proto: Prototype)
+    private fun registerExtern(proto: Prototype)
     {
         root.syms[proto.name] = proto
+    }
+
+    private fun registerPrototype(proto: Prototype)
+    {
+        val protoName = StringBuilder(proto.name)
+
+        for (arg in proto.args)
+        {
+            protoName.append("_${arg.type}")
+        }
+
+        val protoNameBuilt = protoName.toString()
+
+        proto.name = protoNameBuilt
+
+        root.syms[protoNameBuilt] = proto
     }
 
     private fun checkFunction(func: Function)
@@ -173,20 +189,53 @@ class Checker(private val root: Program)
 
     private fun checkCallExpr(expr: CallExpr, scope: Scope): String
     {
-        val proto = root.syms[expr.callee] ?:
-            reportError("check", expr.pos, "Function '${expr.callee}' doesn't exist in the current scope")
+        val calleeName = StringBuilder(expr.callee)
+
+        val paramList = StringBuilder()
 
         for (i in 0..<expr.args.size)
         {
             val exprType = checkExpr(expr.args[i], scope)
-            if (proto.args[i].type != exprType)
+
+            if (i != expr.args.size - 1)
             {
-                reportError(
-                    "check",
-                    expr.args[i].pos,
-                    "Expected type '${proto.args[i].type}' for parameter '${proto.args[i].name}' but found $exprType"
-                )
+                paramList.append("$exprType, ")
             }
+            else
+            {
+                paramList.append(exprType)
+            }
+
+
+            calleeName.append("_$exprType")
+        }
+
+        val calleeNameBuilt = calleeName.toString()
+
+        // Externs will not use the mangled name
+        var useMangled = false
+
+        val proto = if (root.syms[calleeNameBuilt] != null)
+        {
+            useMangled = true;
+            root.syms[calleeNameBuilt]!!
+        }
+        else if (root.syms[expr.callee] != null)
+        {
+            root.syms[expr.callee]!!
+        }
+        else
+        {
+            reportError(
+                "check",
+                expr.pos,
+                "No matching function '${expr.callee}' found accepting parameters (${paramList.toString()})"
+            )
+        }
+
+        if (useMangled)
+        {
+            expr.callee = calleeNameBuilt
         }
 
         return proto.returnType

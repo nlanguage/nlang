@@ -1,17 +1,17 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-void print_int(int integer)
+void print_i(int integer)
 {
     printf("%d\n", integer);
 }
 
-void print_char(char character)
+void print_c(char character)
 {
     printf("%c\n", character);
 }
 
-void print_bool(bool boolean)
+void print_b(bool boolean)
 {
     if (boolean)
     {
@@ -23,7 +23,7 @@ void print_bool(bool boolean)
     }
 }
 
-void print_string(char* string)
+void print_s(char* string)
 {
     printf("%s\n", string);
 }

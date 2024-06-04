@@ -1,24 +1,48 @@
-@extern fun print_int(a: int)
-@extern fun print_char(a: char)
-@extern fun print_bool(a: bool)
-@extern fun print_string(a: string)
+@extern fun print_i(a: int)
+@extern fun print_c(a: char)
+@extern fun print_b(a: bool)
+@extern fun print_s(a: string)
+
+fun print(x: int)
+{
+    print_i(x)
+}
+
+fun print(x: string)
+{
+    print_s(x)
+}
+
+fun print(x: bool)
+{
+    print_b(x)
+}
+
+fun print(x: char)
+{
+    print_c(x)
+}
+
+fun say_hello(name: string)
+{
+    print("Hello there, ")
+    print(name)
+}
+
+fun say_hello(initial: char)
+{
+    print("Hello there, ")
+    print(initial)
+}
 
 fun main() -> int
 {
-    val a = 5
+    print(5)
+    print(true)
+    print('H')
 
-    if (a > 5)
-    {
-        print_string("A is greater than 5")
-    }
-    else if (a == 5)
-    {
-        print_string("A is equal to 5")
-    }
-    else
-    {
-        print_string("A is not greater than 5")
-    }
+    say_hello("John")
+    say_hello("H")
 
     return 0
 }
