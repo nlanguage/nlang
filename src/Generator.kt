@@ -44,7 +44,10 @@ class Generator(private val root: Program)
 
     private fun genPrototype(proto: Prototype)
     {
-        output.append("int ${proto.name}(")
+        val returnType = cTypes[proto.returnType] ?:
+            throw InternalCompilerException("Unable tp find c-type for ${proto.returnType}")
+
+        output.append("$returnType ${proto.name}(")
         output.append(proto.args.joinToString(", ")
         {
             val type = cTypes[it.type] ?:
@@ -194,6 +197,7 @@ class Generator(private val root: Program)
     }
 
     private val cTypes = mapOf(
+        "void"   to "void",
         "char"   to "char",
         "bool"   to "bool",
         "int"    to "int",
