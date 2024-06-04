@@ -3,6 +3,8 @@
 @extern fun print_b(a: bool)
 @extern fun print_s(a: string)
 
+@extern fun _Zadd_mul_int_int(a: int, b: int) -> int
+
 fun print(x: int)
 {
     print_i(x)
@@ -23,32 +25,8 @@ fun print(x: char)
     print_c(x)
 }
 
-fun say_hello(name: string)
-{
-    print("Hello there, ")
-    print(name)
-}
-
-fun say_hello(name: string)
-{
-    print("Hi there, ")
-    print(name)
-}
-
-fun say_hello(initial: char)
-{
-    print("Hello there, ")
-    print(initial)
-}
-
 fun main() -> int
 {
-    print(5)
-    print(true)
-    print('H')
-
-    say_hello("John")
-    say_hello("H")
-
+    print(_Zadd_mul_int_int(5, 2))
     return 0
 }

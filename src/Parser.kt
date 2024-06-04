@@ -1,6 +1,6 @@
 class Parser(private val lexer: Lexer)
 {
-    fun parseProgram(): Program
+    fun parseProgram(): List<AstNode>
     {
         val nodes = mutableListOf<AstNode>()
         while (!lexer.isAtEnd())
@@ -13,7 +13,7 @@ class Parser(private val lexer: Lexer)
             }
         }
 
-        return Program(nodes, hashMapOf())
+        return nodes
     }
 
     private fun parseExtern(): Extern

@@ -2,12 +2,12 @@ data class Variable(val type: String, val mutable: Boolean)
 
 typealias Scope = HashMap<String, Variable>
 
-class Checker(private val root: Program)
+class Checker(val nodes: List<AstNode>, val syms: SymbolTable)
 {
     fun check()
     {
         // Register all symbols beforehand, so that order of declarations doesn't matter
-        for (node in root.nodes)
+        for (node in nodes)
         {
             when (node)
             {
@@ -16,7 +16,7 @@ class Checker(private val root: Program)
             }
         }
 
-        for (node in root.nodes)
+        for (node in nodes)
         {
             if (node is Function)
             {
@@ -28,7 +28,7 @@ class Checker(private val root: Program)
     private fun registerExtern(proto: Prototype)
     {
         // Function redefinition not allowed
-        if (root.syms[proto.name] != null)
+        if (syms[proto.name] != null)
         {
             reportError(
                 "check",
@@ -37,7 +37,7 @@ class Checker(private val root: Program)
             )
         }
 
-        root.syms[proto.name] = proto
+        syms[proto.name] = proto
     }
 
     private fun registerFunction(proto: Prototype)
@@ -60,7 +60,7 @@ class Checker(private val root: Program)
         }
 
         // Function redefinition not allowed
-        if (root.syms[protoName] != null)
+        if (syms[protoName] != null)
         {
             reportError(
                 "check",
@@ -71,7 +71,7 @@ class Checker(private val root: Program)
 
         proto.name = protoName
 
-        root.syms[protoName] = proto
+        syms[protoName] = proto
     }
 
     private fun checkFunction(func: Function)
@@ -242,14 +242,14 @@ class Checker(private val root: Program)
         // Externs will not use the mangled name
         var useMangled = false
 
-        val proto = if (root.syms[calleeName] != null)
+        val proto = if (syms[calleeName] != null)
         {
             useMangled = true;
-            root.syms[calleeName]!!
+            syms[calleeName]!!
         }
-        else if (root.syms[expr.callee] != null)
+        else if (syms[expr.callee] != null)
         {
-            root.syms[expr.callee]!!
+            syms[expr.callee]!!
         }
         else
         {

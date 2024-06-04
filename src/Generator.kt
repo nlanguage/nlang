@@ -1,4 +1,4 @@
-class Generator(private val root: Program)
+class Generator(val nodes: List<AstNode>, val syms: SymbolTable)
 {
     private val output = StringBuilder()
 
@@ -8,7 +8,7 @@ class Generator(private val root: Program)
         output.append("#include<stdbool.h>\n\n")
 
         // Generate forward declarations
-        for (sym in root.syms)
+        for (sym in syms)
         {
             genPrototype(sym.value)
             output.append(";\n")
@@ -16,7 +16,7 @@ class Generator(private val root: Program)
 
         output.append("\n")
 
-        for (node in root.nodes)
+        for (node in nodes)
         {
             when (node)
             {
