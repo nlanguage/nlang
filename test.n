@@ -1,13 +1,8 @@
-@extern
-fun print_int(a: int)
-@extern
-fun print_char(a: char)
-@extern
-fun print_bool(a: bool)
-@extern
-fun print_string(a: string)
+@extern fun print_int(a: int)
+@extern fun print_char(a: char)
+@extern fun print_bool(a: bool)
+@extern fun print_string(a: string)
 
-// Main function
 fun main() -> int
 {
     val a = 5

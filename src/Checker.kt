@@ -2,28 +2,32 @@ data class Variable(val type: String, val mutable: Boolean)
 
 typealias Scope = HashMap<String, Variable>
 
-typealias SymbolTable = HashMap<String, Prototype>
-
 class Checker(private val root: Program)
 {
-    private val syms: SymbolTable = hashMapOf()
-
     fun check()
     {
+        // Register all symbols beforehand, so that order of declarations doesn't matter
         for (node in root.nodes)
         {
             when (node)
             {
-                is Function  -> checkFunction(node)
+                is Function  -> registerPrototype(node.proto)
                 is Extern    -> registerPrototype(node.proto)
-                else         -> throw InternalCompilerException("Unhandled top-level node")
+            }
+        }
+
+        for (node in root.nodes)
+        {
+            if (node is Function)
+            {
+                checkFunction(node)
             }
         }
     }
 
     private fun registerPrototype(proto: Prototype)
     {
-        syms[proto.name] = proto
+        root.syms[proto.name] = proto
     }
 
     private fun checkFunction(func: Function)
@@ -35,7 +39,6 @@ class Checker(private val root: Program)
             scope[arg.name] = Variable(arg.type, false)
         }
 
-        registerPrototype(func.proto)
         checkBlock(func.body, func.proto, scope)
     }
 
@@ -170,7 +173,7 @@ class Checker(private val root: Program)
 
     private fun checkCallExpr(expr: CallExpr, scope: Scope): String
     {
-        val proto = syms[expr.callee] ?:
+        val proto = root.syms[expr.callee] ?:
             reportError("check", expr.pos, "Function '${expr.callee}' doesn't exist in the current scope")
 
         for (i in 0..<expr.args.size)

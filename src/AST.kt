@@ -24,4 +24,6 @@ sealed class AstNode
 data class Extern(val proto: Prototype): AstNode()
 data class Function(val proto: Prototype, val body: Block): AstNode()
 
-data class Program(val nodes: List<AstNode>)
+typealias SymbolTable = HashMap<String, Prototype>
+
+data class Program(val nodes: List<AstNode>, val syms: SymbolTable)

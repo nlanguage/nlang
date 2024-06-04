@@ -4,6 +4,18 @@ class Generator(private val root: Program)
 
     fun generate(): String
     {
+        // Includes
+        output.append("#include<stdbool.h>\n\n")
+
+        // Generate forward declarations
+        for (sym in root.syms)
+        {
+            genPrototype(sym.value)
+            output.append(";\n")
+        }
+
+        output.append("\n")
+
         for (node in root.nodes)
         {
             when (node)
@@ -14,20 +26,13 @@ class Generator(private val root: Program)
             }
         }
 
-        // Includes
-        output.insert(0, "#include<stdbool.h>\n\n")
-
         return output.toString()
     }
 
     private fun genFunction(func: Function)
     {
-        val decl = genPrototype(func.proto)
-
+        genPrototype(func.proto)
         genBlock(func.body)
-
-        // Insert function declaration at the top. This is needed as C needs forward declarations
-        output.insert(0, decl + ";")
     }
 
     private fun genExtern(extern: Extern)
@@ -37,25 +42,17 @@ class Generator(private val root: Program)
         output.append(";\n\n")
     }
 
-    // Prototype is returned for optional use,
-    // this is needed because of forward-decls in c
-    private fun genPrototype(proto: Prototype): String
+    private fun genPrototype(proto: Prototype)
     {
-        val builtProto = StringBuilder()
-
-        builtProto.append("int ${proto.name}(")
-        builtProto.append(proto.args.joinToString(", ")
+        output.append("int ${proto.name}(")
+        output.append(proto.args.joinToString(", ")
         {
             val type = cTypes[it.type] ?:
                 throw InternalCompilerException("Unable tp find c-type for ${it.type}")
 
             "$type ${it.name}"
         })
-        builtProto.append(")")
-
-        output.append(builtProto)
-
-        return builtProto.toString();
+        output.append(")")
     }
 
     private fun genBlock(block: Block)
@@ -100,7 +97,7 @@ class Generator(private val root: Program)
         // Generate final branch
         if (stmnt.elseBlock != null)
         {
-            output.append("\nelse")
+            output.append("else")
             genBlock(stmnt.elseBlock)
         }
     }

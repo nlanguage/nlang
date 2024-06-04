@@ -13,7 +13,7 @@ class Parser(private val lexer: Lexer)
             }
         }
 
-        return Program(nodes)
+        return Program(nodes, hashMapOf())
     }
 
     private fun parseExtern(): Extern
