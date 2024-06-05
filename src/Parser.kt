@@ -7,36 +7,29 @@ class Parser(private val lexer: Lexer)
         {
             when (lexer.current.type)
             {
-                TokenType.EXTERN -> nodes += parseExtern()
-                TokenType.FUN    -> nodes += parseDefinition()
-                else             -> reportParseError(expected = "'fun' or 'extern'")
+                TokenType.FUN    -> nodes += parseFunction()
+                else             -> reportParseError(expected = "'fun'")
             }
         }
 
         return nodes
     }
 
-    private fun parseExtern(): Extern
-    {
-        // Consume 'extern'
-        lexer.eat()
-
-        // Consume 'fun'
-        lexer.eat()
-
-        return Extern(parsePrototype())
-    }
-
-    private fun parseDefinition(): Function
+    private fun parseFunction(): AstNode
     {
         // Consume 'fun'
         lexer.eat()
 
         val proto = parsePrototype()
 
-        val body = parseBlock()
-
-        return Function(proto, body)
+        if (lexer.current.type == TokenType.LBRACE)
+        {
+            return FunctionDecl(proto, parseBlock())
+        }
+        else
+        {
+            return FunctionDef(proto)
+        }
     }
 
     private fun parsePrototype(): Prototype
@@ -77,8 +70,23 @@ class Parser(private val lexer: Lexer)
             returnType = lexer.eat()
         }
 
-        return Prototype(name, args, returnType, pos)
+        val flags = mutableListOf<Flag>()
+        while (lexer.current.text == "@")
+        {
+            flags += parseFlag()
+        }
+
+        return Prototype(name, args, returnType, flags, pos)
     }
+
+    private fun parseFlag(): Flag
+    {
+        // Consume '@'
+        lexer.eat()
+
+        return Flag(lexer.eat())
+    }
+
 
     private fun parseBlock(): Block
     {

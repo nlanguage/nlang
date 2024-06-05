@@ -11,23 +11,22 @@ class Checker(val nodes: List<AstNode>, val syms: SymbolTable)
         {
             when (node)
             {
-                is Function  -> registerFunction(node.proto)
-                is Extern    -> registerExtern(node.proto)
+                is FunctionDecl   -> registerFunction(node.proto)
+                is FunctionDef    -> registerFunction(node.proto)
             }
         }
 
         for (node in nodes)
         {
-            if (node is Function)
+            if (node is FunctionDecl)
             {
                 checkFunction(node)
             }
         }
     }
 
-    private fun registerExtern(proto: Prototype)
+    private fun registerFunction(proto: Prototype)
     {
-        // Function redefinition not allowed
         if (syms[proto.name] != null)
         {
             reportError(
@@ -37,29 +36,28 @@ class Checker(val nodes: List<AstNode>, val syms: SymbolTable)
             )
         }
 
-        syms[proto.name] = proto
-    }
-
-    private fun registerFunction(proto: Prototype)
-    {
-        val mangled = StringBuilder("_Z${proto.name}")
-
-        for (arg in proto.args)
+        if (proto.flags.contains(Flag("extern")))
         {
-            mangled.append("_${arg.type}")
+            syms[proto.name] = proto
+            return
         }
 
-        // Don't mangle main
         val protoName = if (proto.name == "main")
         {
             "main"
         }
         else
         {
-            mangled.toString()
+            buildString{
+                append("_Z${proto.name}")
+
+                for (arg in proto.args)
+                {
+                    append("_${arg.type}")
+                }
+            }
         }
 
-        // Function redefinition not allowed
         if (syms[protoName] != null)
         {
             reportError(
@@ -67,14 +65,15 @@ class Checker(val nodes: List<AstNode>, val syms: SymbolTable)
                 proto.pos,
                 "Multiple definitions of '${proto.name}' with the same parameters is not allowed"
             )
+
+            return
         }
 
         proto.name = protoName
-
         syms[protoName] = proto
     }
 
-    private fun checkFunction(func: Function)
+    private fun checkFunction(func: FunctionDecl)
     {
         val scope = Scope()
 
@@ -217,52 +216,28 @@ class Checker(val nodes: List<AstNode>, val syms: SymbolTable)
 
     private fun checkCallExpr(expr: CallExpr, scope: Scope): String
     {
-        val mangled = StringBuilder("_Z${expr.callee}")
-
-        val paramList = StringBuilder()
-
-        for (i in 0..<expr.args.size)
-        {
-            val exprType = checkExpr(expr.args[i], scope)
-
-            if (i != expr.args.size - 1)
-            {
-                paramList.append("$exprType, ")
+        val mangled = buildString {
+            append("_Z${expr.callee}")
+            expr.args.forEach { arg ->
+                val exprType = checkExpr(arg, scope)
+                append("_$exprType")
             }
-            else
-            {
-                paramList.append(exprType)
-            }
-
-            mangled.append("_$exprType")
         }
 
-        val calleeName = mangled.toString()
+        val paramList = expr.args
+            .subList(0, expr.args.size - 1)
+            .joinToString(", ") { checkExpr(it, scope) } + expr.args.last().toString()
 
-        // Externs will not use the mangled name
-        var useMangled = false
-
-        val proto = if (syms[calleeName] != null)
-        {
-            useMangled = true;
-            syms[calleeName]!!
-        }
-        else if (syms[expr.callee] != null)
-        {
-            syms[expr.callee]!!
-        }
-        else
-        {
+        val proto = syms[mangled] ?: syms[expr.callee] ?:
             reportError(
                 "check",
                 expr.pos,
-                "No matching function '${expr.callee}' found accepting parameters (${paramList.toString()})"
+                "No matching function '${expr.callee}' found accepting parameters ($paramList)"
             )
-        }
 
-        if (useMangled)
+        if (syms.containsKey(mangled))
         {
-            expr.callee = calleeName
+            expr.callee = mangled
         }
 
         return proto.returnType

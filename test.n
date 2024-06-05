@@ -1,32 +1,36 @@
-@extern fun print_i(a: int)
-@extern fun print_c(a: char)
-@extern fun print_b(a: bool)
-@extern fun print_s(a: string)
+fun print_i(a: int) @extern
+fun print_c(a: char) @extern
+fun print_b(a: bool) @extern
+fun print_s(a: string) @extern
 
-@extern fun _Zadd_mul_int_int(a: int, b: int) -> int
-
-fun print(x: int)
+fun print(x: int) @export
 {
     print_i(x)
 }
 
-fun print(x: string)
+fun print(x: string) @export
 {
     print_s(x)
 }
 
-fun print(x: bool)
+fun print(x: bool) @export
 {
     print_b(x)
 }
 
-fun print(x: char)
+fun print(x: char) @export
 {
     print_c(x)
 }
 
+fun say_hello(name: string)
+{
+    print("Hello there, ")
+    print(name)
+}
+
 fun main() -> int
 {
-    print(_Zadd_mul_int_int(5, 2))
+    say_hello("James")
     return 0
 }

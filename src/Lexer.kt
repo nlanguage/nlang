@@ -3,7 +3,7 @@ enum class TokenType
     VAL,
     VAR,
     FUN,
-    EXTERN,
+    FLAG,
     RETURN,
     IF,
     ELSE,
@@ -141,7 +141,6 @@ class Lexer(private val input: String)
         val tokenType = when (text)
         {
             "fun"    -> TokenType.FUN
-            "@extern" -> TokenType.EXTERN
             "return" -> TokenType.RETURN
             "val"    -> TokenType.VAL
             "var"    -> TokenType.VAR
@@ -209,6 +208,7 @@ class Lexer(private val input: String)
             '('              -> Token(TokenType.LPAREN, cur.toString(), FilePos(line, col))
             ','              -> Token(TokenType.COMMA,  cur.toString(), FilePos(line, col))
             ':'              -> Token(TokenType.COLON,  cur.toString(), FilePos(line, col))
+            '@'              -> Token(TokenType.FLAG,   cur.toString(), FilePos(line, col))
 
             '='              ->
             {
