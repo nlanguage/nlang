@@ -11,13 +11,20 @@ class Project(val name: String, val files: List<File>)
         {
             val translation = Translation(file.name, file.readText())
 
-            reportCompilation(file.name)
-
-            translation.compile()
+            println("${GREEN}Parsing file${RESET}: ${file.name}")
+            translation.parse()
 
             units += translation
-
             irFiles += translation.irFile.path
+        }
+
+        // Unit 0 is the main translation unit (main file)
+        // Checking is done recursively, according to imports
+        units[0].check(units)
+
+        units.forEach {
+            println("${GREEN}Generating IR for file${RESET}: ${it.name}")
+            it.generate()
         }
 
         println("${GREEN}Compilation done${RESET}. Passing files to clang")
@@ -39,5 +46,4 @@ class Project(val name: String, val files: List<File>)
 
         clangProcess.waitFor()
     }
-
 }

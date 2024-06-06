@@ -22,7 +22,8 @@ class Generator(val nodes: List<AstNode>, val syms: SymbolTable)
             {
                 is FunctionDecl -> genFunctionDecl(node)
                 is FunctionDef  -> genFunctionDef(node)
-                else            -> throw InternalCompilerException("Unhandled top-level node")
+                is Import       -> {}
+                else            -> throw InternalCompilerException("Unhandled top-level node $node")
             }
         }
 
@@ -37,8 +38,8 @@ class Generator(val nodes: List<AstNode>, val syms: SymbolTable)
 
     private fun genFunctionDef(def: FunctionDef)
     {
-        // Handle externs
-        if (def.proto.flags.contains(Flag("extern")))
+        // Handle externs and imports
+        if (def.proto.flags.contains(Flag("extern")) || def.proto.flags.contains(Flag("imported")))
         {
             output.append("extern ")
         }

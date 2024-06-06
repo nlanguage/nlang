@@ -8,11 +8,22 @@ class Parser(private val lexer: Lexer)
             when (lexer.current.type)
             {
                 TokenType.FUN    -> nodes += parseFunction()
+                TokenType.IMPORT -> nodes += parseImport()
                 else             -> reportParseError(expected = "'fun'")
             }
         }
 
         return nodes
+    }
+
+    private fun parseImport(): Import
+    {
+        // Consume 'import'
+        lexer.eat()
+
+        val pos = lexer.current.filePos
+
+        return Import(lexer.eat(), pos)
     }
 
     private fun parseFunction(): AstNode

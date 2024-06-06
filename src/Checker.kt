@@ -2,17 +2,29 @@ data class Variable(val type: String, val mutable: Boolean)
 
 typealias Scope = HashMap<String, Variable>
 
-class Checker(val nodes: List<AstNode>, val syms: SymbolTable)
+class Checker(var nodes: List<AstNode>, val syms: SymbolTable, val otherUnits: List<Translation>)
 {
     fun check()
     {
+        val defs = mutableListOf<FunctionDef>()
+        // Handle all imports first, other nodes may depend on them
+        for (node in nodes)
+        {
+            if (node is Import)
+            {
+                defs += handleImport(node)
+            }
+        }
+
         // Register all symbols beforehand, so that order of declarations doesn't matter
         for (node in nodes)
         {
             when (node)
             {
-                is FunctionDecl   -> registerFunction(node.proto)
-                is FunctionDef    -> registerFunction(node.proto)
+                is FunctionDecl -> registerFunction(node.proto)
+                is FunctionDef  -> registerFunction(node.proto)
+                is Import       -> {}
+                else            -> throw InternalCompilerException("Unhandled top-level node")
             }
         }
 
@@ -23,6 +35,59 @@ class Checker(val nodes: List<AstNode>, val syms: SymbolTable)
                 checkFunction(node)
             }
         }
+
+        nodes += defs
+    }
+
+    private fun handleImport(import: Import): List<FunctionDef>
+    {
+        val defs = mutableListOf<FunctionDef>()
+
+        val unit = otherUnits.find { it.name == import.name + ".n"} ?:
+            reportError("check", import.pos, "No file found for module ${import.name}")
+
+        // Recursively check other units. This recursion will go on until a file with no imports is found.
+        // This is the bottom of the import tree
+        if (!unit.checked)
+        {
+            unit.check(otherUnits, )
+        }
+
+        for (extSym in unit.syms)
+        {
+            // Only include exported symbols (and not externs)
+            if (extSym.value.flags.contains(Flag("export")))
+            {
+                if (extSym.value.flags.contains(Flag("extern")) || extSym.value.flags.contains(Flag("imported")))
+                {
+                    continue
+                }
+
+                // Make sure imports do not conflict with our symbols
+                if (syms[extSym.value.name] != null)
+                {
+                    reportError(
+                        "check",
+                        extSym.value.pos,
+                        "Multiple definitions of '${extSym.value.name}' with the same parameters is not allowed"
+                    )
+                }
+
+                // Mark the symbol as an import. This ensures codegen generates it properly
+                // and ensures imports don't travel up the import tree
+                // Make sure to copy() the externProto, otherwise the original prototype is modified
+                val externProto = extSym.value.copy()
+                externProto.flags += Flag("imported")
+
+                syms[extSym.value.name] = externProto
+
+                // Defintions can only be added at the end, otherwise they are duplicated by registerFunction()
+                defs += FunctionDef(externProto)
+
+            }
+        }
+
+        return defs
     }
 
     private fun registerFunction(proto: Prototype)
@@ -224,9 +289,7 @@ class Checker(val nodes: List<AstNode>, val syms: SymbolTable)
             }
         }
 
-        val paramList = expr.args
-            .subList(0, expr.args.size - 1)
-            .joinToString(", ") { checkExpr(it, scope) } + expr.args.last().toString()
+        val paramList = expr.args.joinToString(", ") { checkExpr(it, scope) }
 
         val proto = syms[mangled] ?: syms[expr.callee] ?:
             reportError(

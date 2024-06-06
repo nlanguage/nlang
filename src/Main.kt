@@ -4,7 +4,7 @@ fun main(args: Array<String>)
 {
     if (args.size < 2)
     {
-        println("Usage: nc <project> <input files>")
+        println("Usage: nc <project> <main file> <other files>")
         return
     }
 

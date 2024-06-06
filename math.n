@@ -1,4 +1,9 @@
-fun add_mul(a: int, b: int) -> int
+fun add_mul(a: int, b: int) -> int @export
 {
     return (a + b) * (a + b)
+}
+
+fun pow_two(x: int) -> int @export
+{
+    return x * x
 }

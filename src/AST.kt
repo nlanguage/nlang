@@ -17,7 +17,7 @@ data class Prototype(
     var name: String,
     val args: List<Pair>,
     val returnType: String,
-    val flags: List<Flag>,
+    var flags: List<Flag>,
     val pos: FilePos
 )
 
@@ -31,6 +31,7 @@ data class AssignStatement(val name: String, val expr: Expr): Statement()
 sealed class AstNode
 data class FunctionDef(val proto: Prototype): AstNode()
 data class FunctionDecl(val proto: Prototype, val body: Block): AstNode()
+data class Import(val name: String, val pos: FilePos): AstNode()
 
 typealias SymbolTable = HashMap<String, Prototype>
 

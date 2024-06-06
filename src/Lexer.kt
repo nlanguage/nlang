@@ -3,7 +3,7 @@ enum class TokenType
     VAL,
     VAR,
     FUN,
-    FLAG,
+    IMPORT,
     RETURN,
     IF,
     ELSE,
@@ -23,6 +23,7 @@ enum class TokenType
     SUB,
     MUL,
     DIV,
+    FLAG,
     LPAREN,
     RPAREN,
     LBRACE,
@@ -146,6 +147,7 @@ class Lexer(private val input: String)
             "var"    -> TokenType.VAR
             "if"     -> TokenType.IF
             "else"   -> TokenType.ELSE
+            "import" -> TokenType.IMPORT
 
             "true",
             "false"  -> TokenType.BOOLEAN
