@@ -1,34 +1,39 @@
-data class Variable(val type: String, val mutable: Boolean)
+import ast.*
 
 typealias Scope = HashMap<String, Variable>
 
-class Checker(var nodes: List<AstNode>, val syms: SymbolTable, val otherUnits: List<Translation>)
+class Checker(val m: Module, val others: List<Module>)
 {
     fun check()
     {
         val defs = mutableListOf<FunctionDef>()
+
         // Handle all imports first, other nodes may depend on them
-        for (node in nodes)
+        // Cannot remove elements from array while iterating over them
+        val toRemove = mutableListOf<Node>()
+        for (node in m.nodes)
         {
             if (node is Import)
             {
                 defs += handleImport(node)
+                toRemove += node
             }
         }
 
+        m.nodes.removeAll(toRemove)
+
         // Register all symbols beforehand, so that order of declarations doesn't matter
-        for (node in nodes)
+        for (node in m.nodes)
         {
             when (node)
             {
-                is FunctionDecl -> registerFunction(node.proto)
-                is FunctionDef  -> registerFunction(node.proto)
-                is Import       -> {}
+                is FunctionDecl -> registerFunction(node.proto, node.pos)
+                is FunctionDef  -> registerFunction(node.proto, node.pos)
                 else            -> throw InternalCompilerException("Unhandled top-level node")
             }
         }
 
-        for (node in nodes)
+        for (node in m.nodes)
         {
             if (node is FunctionDecl)
             {
@@ -36,53 +41,55 @@ class Checker(var nodes: List<AstNode>, val syms: SymbolTable, val otherUnits: L
             }
         }
 
-        nodes += defs
+        m.nodes += defs
+
+        m.checked = true
     }
 
     private fun handleImport(import: Import): List<FunctionDef>
     {
         val defs = mutableListOf<FunctionDef>()
 
-        val unit = otherUnits.find { it.name == import.name + ".n"} ?:
-            reportError("check", import.pos, "No file found for module ${import.name}")
+        val imported = others.find { it.file.name == import.name + ".n"} ?:
+        reportError("check", import.pos, "No file '${import.name}' found")
 
-        // Recursively check other units. This recursion will go on until a file with no imports is found.
-        // This is the bottom of the import tree
-        if (!unit.checked)
+        // Recursively check other units. This recursion will go on until a file with no imports is found,
+        // which is the bottom of the import tree
+        if (!imported.checked)
         {
-            unit.check(otherUnits, )
+            Checker(imported, others).check()
         }
 
-        for (extSym in unit.syms)
+        for (impSym in imported.syms)
         {
             // Only include exported symbols (and not externs)
-            if (extSym.value.flags.contains(Flag("export")))
+            if (impSym.value.flags.contains(Flag("export")))
             {
-                if (extSym.value.flags.contains(Flag("extern")) || extSym.value.flags.contains(Flag("imported")))
+                if (impSym.value.flags.contains(Flag("extern")) || impSym.value.flags.contains(Flag("imported")))
                 {
                     continue
                 }
 
                 // Make sure imports do not conflict with our symbols
-                if (syms[extSym.value.name] != null)
+                if (m.syms[impSym.value.name] != null)
                 {
                     reportError(
                         "check",
-                        extSym.value.pos,
-                        "Multiple definitions of '${extSym.value.name}' with the same parameters is not allowed"
+                        import.pos,
+                        "Import has conflicting definitions of '${impSym.value.name}'"
                     )
                 }
 
                 // Mark the symbol as an import. This ensures codegen generates it properly
                 // and ensures imports don't travel up the import tree
                 // Make sure to copy() the externProto, otherwise the original prototype is modified
-                val externProto = extSym.value.copy()
+                val externProto = impSym.value.copy()
                 externProto.flags += Flag("imported")
 
-                syms[extSym.value.name] = externProto
+                m.syms[impSym.value.name] = externProto
 
                 // Defintions can only be added at the end, otherwise they are duplicated by registerFunction()
-                defs += FunctionDef(externProto)
+                defs += FunctionDef(externProto, import.pos)
 
             }
         }
@@ -90,20 +97,21 @@ class Checker(var nodes: List<AstNode>, val syms: SymbolTable, val otherUnits: L
         return defs
     }
 
-    private fun registerFunction(proto: Prototype)
+    // TODO: Fix this function. Figure out how to extract proto from both decl and def
+    private fun registerFunction(proto: Prototype, pos: FilePos)
     {
-        if (syms[proto.name] != null)
+        if (m.syms[proto.name] != null)
         {
             reportError(
                 "check",
-                proto.pos,
+                pos,
                 "Multiple definitions of '${proto.name}' with the same parameters is not allowed"
             )
         }
 
         if (proto.flags.contains(Flag("extern")))
         {
-            syms[proto.name] = proto
+            m.syms[proto.name] = proto
             return
         }
 
@@ -123,11 +131,11 @@ class Checker(var nodes: List<AstNode>, val syms: SymbolTable, val otherUnits: L
             }
         }
 
-        if (syms[protoName] != null)
+        if (m.syms[protoName] != null)
         {
             reportError(
                 "check",
-                proto.pos,
+                pos,
                 "Multiple definitions of '${proto.name}' with the same parameters is not allowed"
             )
 
@@ -135,7 +143,7 @@ class Checker(var nodes: List<AstNode>, val syms: SymbolTable, val otherUnits: L
         }
 
         proto.name = protoName
-        syms[protoName] = proto
+        m.syms[protoName] = proto
     }
 
     private fun checkFunction(func: FunctionDecl)
@@ -144,7 +152,7 @@ class Checker(var nodes: List<AstNode>, val syms: SymbolTable, val otherUnits: L
 
         for (arg in func.proto.args)
         {
-            scope[arg.name] = Variable(arg.type, false)
+            scope[arg.name] = arg
         }
 
         checkBlock(func.body, func.proto, scope)
@@ -190,7 +198,7 @@ class Checker(var nodes: List<AstNode>, val syms: SymbolTable, val otherUnits: L
     private fun checkAssignStatement(stmnt: AssignStatement, scope: Scope)
     {
         val lhs = scope[stmnt.name] ?:
-            reportError("check", stmnt.expr.pos, "Variable '${stmnt.name}' not declared in this scope")
+        reportError("check", stmnt.expr.pos, "Variable '${stmnt.name}' not declared in this scope")
 
         if (!lhs.mutable)
         {
@@ -214,19 +222,19 @@ class Checker(var nodes: List<AstNode>, val syms: SymbolTable, val otherUnits: L
         val rhs = checkExpr(stmnt.expr, scope)
 
         // A type was specified during declaration
-        if (stmnt.type != null)
+        if (stmnt.variable.type != null)
         {
-            if (stmnt.type != rhs)
+            if (stmnt.variable.type != rhs)
             {
-                reportError("check", stmnt.expr.pos, "Expected type'${stmnt.type}', but found '$rhs'")
+                reportError("check", stmnt.expr.pos, "Expected type'${stmnt.variable.type}', but found '$rhs'")
             }
         }
         else
         {
-            stmnt.type = rhs
+            stmnt.variable.type = rhs
         }
 
-        scope[stmnt.name] = Variable(stmnt.type!!, stmnt.mutable)
+        scope[stmnt.variable.name] = stmnt.variable
     }
 
     private fun checkExprStatement(stmnt: ExprStatement, scope: Scope)
@@ -291,14 +299,14 @@ class Checker(var nodes: List<AstNode>, val syms: SymbolTable, val otherUnits: L
 
         val paramList = expr.args.joinToString(", ") { checkExpr(it, scope) }
 
-        val proto = syms[mangled] ?: syms[expr.callee] ?:
-            reportError(
-                "check",
-                expr.pos,
-                "No matching function '${expr.callee}' found accepting parameters ($paramList)"
-            )
+        val proto = m.syms[mangled] ?: m.syms[expr.callee] ?:
+        reportError(
+            "check",
+            expr.pos,
+            "No matching function '${expr.callee}' found accepting parameters ($paramList)"
+        )
 
-        if (syms.containsKey(mangled))
+        if (m.syms.containsKey(mangled))
         {
             expr.callee = mangled
         }
@@ -309,9 +317,11 @@ class Checker(var nodes: List<AstNode>, val syms: SymbolTable, val otherUnits: L
     private fun checkVariableExpr(expr: VariableExpr, scope: Scope): String
     {
         val variable = scope[expr.name]?:
-            reportError("check", expr.pos, "Variable '${expr.name}' doesn't exist in the current scope")
+        reportError("check", expr.pos, "Variable '${expr.name}' doesn't exist in the current scope")
 
-        return variable.type
+        // TODO: Is this unreachable?
+        return variable.type ?:
+            reportError("check", expr.pos, "Unknown type for variable '${expr.name}'")
     }
 
     private val possibleOps = mapOf(

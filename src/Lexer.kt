@@ -1,42 +1,26 @@
+import ast.FilePos
+
 enum class TokenType
 {
-    VAL,
-    VAR,
-    FUN,
-    IMPORT,
-    RETURN,
-    IF,
-    ELSE,
-    ASSIGN,
-    EQUALS,
-    NOT_EQUALS,
-    LESS_THAN,
-    GREATER_THAN,
-    LESS_THAN_EQUAL_TO,
-    GREATER_THAN_EQUAL_TO,
     IDENTIFIER,
     NUMERIC,
     BOOLEAN,
     CHARACTER,
     STRING,
-    ADD,
-    SUB,
-    MUL,
-    DIV,
-    FLAG,
-    LPAREN,
-    RPAREN,
-    LBRACE,
-    RBRACE,
-    COMMA,
-    COLON,
-    ARROW,
-    EOF,
+    OPERATOR,
+    DELIMITER,
+    KEYWORD,
+    EOF
+
 }
 
-data class Token(val type: TokenType, val text: String, val filePos: FilePos)
+data class Token(
+    val type: TokenType,
+    val text: String,
+    val pos: FilePos
+)
 
-class Lexer(private val input: String)
+class Lexer(private val name: String, private val input: String)
 {
     // current and lookahead tokens will be valid after prime()
 
@@ -85,7 +69,8 @@ class Lexer(private val input: String)
 
     private fun skipWhitespace()
     {
-        while (!isAtEnd()) {
+        while (!isAtEnd())
+        {
             when (peek())
             {
                 ' ', '\n', '\r', '\t' -> advance()
@@ -115,7 +100,7 @@ class Lexer(private val input: String)
         }
     }
 
-    private fun number(): Token
+    private fun handleNumeric(): Token
     {
         val start = pos - 1
 
@@ -124,11 +109,15 @@ class Lexer(private val input: String)
             advance()
         }
 
-        return Token(TokenType.NUMERIC, input.substring(start, pos), FilePos(line, col))
+        return Token(
+            TokenType.NUMERIC,
+            input.substring(start, pos),
+            FilePos(name, line, col)
+        )
     }
 
     // Handles both identifiers and keywords
-    private fun identifier(): Token
+    private fun handleAlpha(): Token
     {
         val start = pos - 1
 
@@ -141,21 +130,21 @@ class Lexer(private val input: String)
 
         val tokenType = when (text)
         {
-            "fun"    -> TokenType.FUN
-            "return" -> TokenType.RETURN
-            "val"    -> TokenType.VAL
-            "var"    -> TokenType.VAR
-            "if"     -> TokenType.IF
-            "else"   -> TokenType.ELSE
-            "import" -> TokenType.IMPORT
+            "fun",
+            "return",
+            "val",
+            "var",
+            "if",
+            "else",
+            "import", -> TokenType.KEYWORD
 
             "true",
-            "false"  -> TokenType.BOOLEAN
+            "false"   -> TokenType.BOOLEAN
 
-            else     -> TokenType.IDENTIFIER
+            else      -> TokenType.IDENTIFIER
         }
 
-        return Token(tokenType, text, FilePos(line, col))
+        return Token(tokenType, text, FilePos(name, line, col))
     }
 
     fun prime()
@@ -169,7 +158,7 @@ class Lexer(private val input: String)
     {
         if (current.text != expected)
         {
-            reportError("Parsing", current.filePos, "Expected $expected but found '${current.text}'")
+            reportError("parsing", current.pos, "Expected $expected but found '${current.text}'")
         }
 
         eat()
@@ -180,7 +169,9 @@ class Lexer(private val input: String)
         val currentText = if (this::current.isInitialized)
         {
             current.text
-        } else {
+        }
+        else
+        {
             ""
         }
 
@@ -193,7 +184,7 @@ class Lexer(private val input: String)
 
         if (isAtEnd())
         {
-            lookahead = Token(TokenType.EOF, "", FilePos(line, col))
+            lookahead = Token(TokenType.EOF, "", FilePos(name, line, col))
             return currentText
         }
 
@@ -201,116 +192,118 @@ class Lexer(private val input: String)
 
         lookahead = when (cur)
         {
-            '*'              -> Token(TokenType.MUL,    cur.toString(), FilePos(line, col))
-            '/'              -> Token(TokenType.DIV,    cur.toString(), FilePos(line, col))
-            '+'              -> Token(TokenType.ADD,    cur.toString(), FilePos(line, col))
-            ')'              -> Token(TokenType.RPAREN, cur.toString(), FilePos(line, col))
-            '{'              -> Token(TokenType.LBRACE, cur.toString(), FilePos(line, col))
-            '}'              -> Token(TokenType.RBRACE, cur.toString(), FilePos(line, col))
-            '('              -> Token(TokenType.LPAREN, cur.toString(), FilePos(line, col))
-            ','              -> Token(TokenType.COMMA,  cur.toString(), FilePos(line, col))
-            ':'              -> Token(TokenType.COLON,  cur.toString(), FilePos(line, col))
-            '@'              -> Token(TokenType.FLAG,   cur.toString(), FilePos(line, col))
+            '*',
+            '/',
+            '+' -> Token(TokenType.OPERATOR, cur.toString(), FilePos(name, line, col))
 
-            '='              ->
-            {
-                if (peek() == '=')
-                {
-                    // Consume '='
-                    advance()
-                    Token(TokenType.EQUALS, "==", FilePos(line, col))
-                }
-                else
-                {
-                    Token(TokenType.ASSIGN, cur.toString(), FilePos(line, col))
-                }
-            }
-
-            '>'              ->
-            {
-                if (peek() == '=')
-                {
-                    // Consume '='
-                    advance()
-                    Token(TokenType.GREATER_THAN_EQUAL_TO, ">=", FilePos(line, col))
-                }
-                else
-                {
-                    Token(TokenType.GREATER_THAN, cur.toString(), FilePos(line, col))
-                }
-            }
-
-            '<'              ->
-            {
-                if (peek() == '=')
-                {
-                    // Consume '='
-                    advance()
-                    Token(TokenType.LESS_THAN_EQUAL_TO, "<=", FilePos(line, col))
-                }
-                else
-                {
-                    Token(TokenType.LESS_THAN, cur.toString(), FilePos(line, col))
-                }
-            }
-
-            '!'              ->
-            {
-                if (peek() == '=')
-                {
-                    // Consume '='
-                    advance()
-                    Token(TokenType.NOT_EQUALS, "!=", FilePos(line, col))
-                }
-                else
-                {
-                    reportError("lex", FilePos(line, col), "Unexpected character '$cur'")
-                }
-
-            }
-
-            '\''             ->
-            {
-                val value = advance().toString()
-
-                if (advance() != '\'')
-                {
-                    reportError("lex", FilePos(line, col), "Expected ''' to terminate char literal")
-                }
-
-                Token(TokenType.CHARACTER, value, FilePos(line, col))
-            }
-
-            '"'              ->
-            {
-                val start = pos
-
-                while (advance() != '"') {}
-
-                Token(TokenType.STRING, input.substring(start, pos - 1), FilePos(line, col))
-            }
-
-            '-'              ->
+            '-' ->
             {
                 if (peek() == '>')
                 {
                     // Consume '>'
                     advance()
-                    Token(TokenType.ARROW, "->", FilePos(line, col))
+                    Token(TokenType.DELIMITER, "->", FilePos(name, line, col))
                 }
                 else
                 {
-                    Token(TokenType.SUB, "-", FilePos(line, col))
+                    Token(TokenType.OPERATOR, "-", FilePos(name, line, col))
                 }
             }
 
-            in '0'..'9'      -> number()
+            ')',
+            '{',
+            '}',
+            '(',
+            ',',
+            ':',
+            '@' -> Token(TokenType.DELIMITER, cur.toString(), FilePos(name, line, col))
+
+            '=' ->
+            {
+                if (peek() == '=')
+                {
+                    // Consume '='
+                    advance()
+                    Token(TokenType.OPERATOR, "==", FilePos(name, line, col))
+                }
+                else
+                {
+                    Token(TokenType.OPERATOR, cur.toString(), FilePos(name, line, col))
+                }
+            }
+
+            '>' ->
+            {
+                if (peek() == '=')
+                {
+                    // Consume '='
+                    advance()
+                    Token(TokenType.OPERATOR, ">=", FilePos(name, line, col))
+                }
+                else
+                {
+                    Token(TokenType.OPERATOR, cur.toString(), FilePos(name, line, col))
+                }
+            }
+
+            '<' ->
+            {
+                if (peek() == '=')
+                {
+                    // Consume '='
+                    advance()
+                    Token(TokenType.OPERATOR, "<=", FilePos(name, line, col))
+                }
+                else
+                {
+                    Token(TokenType.OPERATOR, cur.toString(), FilePos(name, line, col))
+                }
+            }
+
+            '!' ->
+            {
+                if (peek() == '=')
+                {
+                    // Consume '='
+                    advance()
+                    Token(TokenType.OPERATOR, "!=", FilePos(name, line, col))
+                }
+                else
+                {
+                    reportError("lex", FilePos(name, line, col), "Unexpected character '$cur'")
+                }
+            }
+
+            '\'' ->
+            {
+                val value = advance().toString()
+
+                if (advance() != '\'')
+                {
+                    reportError("lex", FilePos(name, line, col), "Expected ''' to terminate char literal")
+                }
+
+                Token(TokenType.CHARACTER, value, FilePos(name, line, col))
+            }
+
+            '"' ->
+            {
+                val start = pos
+
+                while (advance() != '"') {}
+
+                Token(TokenType.STRING, input.substring(start, pos - 1), FilePos(name, line, col))
+            }
+
+
+            in '0'..'9'  -> handleNumeric()
 
             in 'a'..'z',
             in 'A'..'Z',
-               '_', '@',     -> identifier()
+            '_',
+                         -> handleAlpha()
 
-            else             -> reportError("lex", FilePos(line, col), "Unexpected character '$cur'")
+            else         -> reportError("lex", FilePos(name, line, col), "Unexpected character '$cur'")
         }
 
         return currentText

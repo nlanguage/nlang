@@ -1,49 +1,52 @@
 import java.io.File
 
-class Project(val name: String, val files: List<File>)
+fun buildProject(name: String, filePaths: List<String>)
 {
-    val units: MutableList<Translation> = mutableListOf()
+    val modules = mutableListOf<Module>()
 
-    fun build()
+    for (path in filePaths)
     {
-        val irFiles = mutableListOf<String>()
-        for (file in files)
-        {
-            val translation = Translation(file.name, file.readText())
+        val module = Module(File(path))
 
-            println("${GREEN}Parsing file${RESET}: ${file.name}")
-            translation.parse()
+        Parser(module).parse()
 
-            units += translation
-            irFiles += translation.irFile.path
-        }
-
-        // Unit 0 is the main translation unit (main file)
-        // Checking is done recursively, according to imports
-        units[0].check(units)
-
-        units.forEach {
-            println("${GREEN}Generating IR for file${RESET}: ${it.name}")
-            it.generate()
-        }
-
-        println("${GREEN}Compilation done${RESET}. Passing files to clang")
-
-        val clangArgs = mutableListOf(
-            "clang",
-            "-Wno-unused-value",
-            "-Wno-parentheses-equality",
-            "-o",
-            name,
-            "stdlib.c",
-        )
-
-        clangArgs += irFiles
-
-        val clangProcess = ProcessBuilder(clangArgs)
-            .inheritIO()
-            .start()
-
-        clangProcess.waitFor()
+        modules += module
     }
+
+    // Checking in recursive, starting from the main module
+    Checker(modules[0], modules).check()
+
+    val irFilePaths = mutableListOf<String>()
+    for (module in modules)
+    {
+        irFilePaths += Generator(module).generate()
+    }
+
+    val clangArgs = mutableListOf(
+        "clang",
+        "-Wno-unused-value",
+        "-Wno-parentheses-equality",
+        "-o",
+        name,
+        "stdlib.c",
+    )
+
+    clangArgs += irFilePaths
+
+    val clangProcess = ProcessBuilder(clangArgs)
+        .inheritIO()
+        .start()
+
+    clangProcess.waitFor()
+}
+
+fun runProject(name: String)
+{
+    val userProcess = ProcessBuilder("./" + name)
+        .inheritIO()
+        .start()
+
+    userProcess.waitFor()
+
+    println("User process finished with exit code ${userProcess.exitValue()}")
 }

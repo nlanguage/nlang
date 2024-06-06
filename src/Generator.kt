@@ -1,6 +1,10 @@
-class Generator(val nodes: List<AstNode>, val syms: SymbolTable)
+import ast.*
+
+import java.io.File
+
+class Generator(val m: Module)
 {
-    private val output = StringBuilder()
+    val output = StringBuilder()
 
     fun generate(): String
     {
@@ -8,7 +12,7 @@ class Generator(val nodes: List<AstNode>, val syms: SymbolTable)
         output.append("#include<stdbool.h>\n\n")
 
         // Generate forward declarations
-        for (sym in syms)
+        for (sym in m.syms)
         {
             genPrototype(sym.value)
             output.append(";\n")
@@ -16,7 +20,7 @@ class Generator(val nodes: List<AstNode>, val syms: SymbolTable)
 
         output.append("\n")
 
-        for (node in nodes)
+        for (node in m.nodes)
         {
             when (node)
             {
@@ -27,7 +31,14 @@ class Generator(val nodes: List<AstNode>, val syms: SymbolTable)
             }
         }
 
-        return output.toString()
+        var irFile = File(
+            System.getProperty("java.io.tmpdir"),
+            m.file.name.substring(0, m.file.name.length - 2) + ".c"
+        )
+
+        irFile.writeText(output.toString())
+
+        return irFile.path
     }
 
     private fun genFunctionDecl(func: FunctionDecl)
@@ -51,13 +62,13 @@ class Generator(val nodes: List<AstNode>, val syms: SymbolTable)
     private fun genPrototype(proto: Prototype)
     {
         val returnType = cTypes[proto.returnType] ?:
-            throw InternalCompilerException("Unable tp find c-type for ${proto.returnType}")
+        throw InternalCompilerException("Unable tp find c-type for ${proto.returnType}")
 
         output.append("$returnType ${proto.name}(")
         output.append(proto.args.joinToString(", ")
         {
             val type = cTypes[it.type] ?:
-                throw InternalCompilerException("Unable tp find c-type for ${it.type}")
+            throw InternalCompilerException("Unable tp find c-type for ${it.type}")
 
             "$type ${it.name}"
         })
@@ -119,10 +130,10 @@ class Generator(val nodes: List<AstNode>, val syms: SymbolTable)
 
     private fun genDeclarationStatement(stmnt: DeclareStatement)
     {
-        val type = cTypes[stmnt.type] ?:
-            throw InternalCompilerException("Unable tp find c-type for ${stmnt.type}")
+        val type = cTypes[stmnt.variable.type] ?:
+        throw InternalCompilerException("Unable tp find c-type for ${stmnt.variable.type}")
 
-        output.append("$type ${stmnt.name} =")
+        output.append("$type ${stmnt.variable.name} =")
         genExpr(stmnt.expr)
     }
 
