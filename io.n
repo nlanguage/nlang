@@ -1,3 +1,4 @@
+import io
 import math
 
 fun print_i(a: int) @extern
@@ -27,5 +28,6 @@ fun print(x: char) @export
 
 fun print_pow(x: int) @export
 {
+    say_hello("James")
     print(pow_two(x))
 }

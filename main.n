@@ -1,7 +1,7 @@
 import io
 import math
 
-fun say_hello(name: string)
+fun say_hello(name: string) @export
 {
     print("Hello there, ")
     print(name)

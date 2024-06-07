@@ -14,7 +14,7 @@ fun buildProject(name: String, filePaths: List<String>)
     }
 
     // Checking in recursive, starting from the main module
-    Checker(modules[0], modules).check()
+    Checker(modules[0], "", modules).check()
 
     val irFilePaths = mutableListOf<String>()
     for (module in modules)

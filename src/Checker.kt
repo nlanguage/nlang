@@ -2,7 +2,7 @@ import ast.*
 
 typealias Scope = HashMap<String, Variable>
 
-class Checker(val m: Module, val others: List<Module>)
+class Checker(val m: Module, val from: String, val others: List<Module>)
 {
     fun check()
     {
@@ -48,6 +48,18 @@ class Checker(val m: Module, val others: List<Module>)
 
     private fun handleImport(import: Import): List<FunctionDef>
     {
+        // Check for cyclical dependencies
+        if (import.name + ".n" == from)
+        {
+            reportError("check", import.pos, "Cyclical dependency on '${import.name}'")
+        }
+
+        // Check for dependency on self
+        if (import.name + ".n" == m.file.name)
+        {
+            reportError("check", import.pos, "'${import.name}' cannot depend on itself")
+        }
+
         val defs = mutableListOf<FunctionDef>()
 
         val imported = others.find { it.file.name == import.name + ".n"} ?:
@@ -57,7 +69,7 @@ class Checker(val m: Module, val others: List<Module>)
         // which is the bottom of the import tree
         if (!imported.checked)
         {
-            Checker(imported, others).check()
+            Checker(imported, m.file.name, others).check()
         }
 
         for (impSym in imported.syms)
