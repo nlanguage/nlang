@@ -74,10 +74,9 @@ class Checker(val m: Module, val from: String, val others: List<Module>)
 
         for (impSym in imported.syms)
         {
-            // Only include exported symbols (and not externs)
             if (impSym.value.flags.contains(Flag("export")))
             {
-                if (impSym.value.flags.contains(Flag("extern")) || impSym.value.flags.contains(Flag("imported")))
+                if (impSym.value.flags.contains(Flag("imported")))
                 {
                     continue
                 }
@@ -221,10 +220,42 @@ class Checker(val m: Module, val from: String, val others: List<Module>)
 
         if (lhs.type != rhs)
         {
+            // TODO: Shorten this code
+            if (lhs.type in signedIntTypes && rhs in signedIntTypes)
+            {
+                if (signedIntTypes[lhs.type]!! < signedIntTypes[rhs]!!)
+                {
+                    reportError(
+                        "check",
+                        stmnt.expr.pos,
+                        "Cannot assign value of type '$rhs' to variable '${stmnt.name}' of type '${lhs.type}'," +
+                                " as '$rhs' is greater in size"
+                    )
+                }
+
+                return
+            }
+
+            // TODO: ^^^ Duplicated here
+            if (lhs.type in unsignedIntTypes && rhs in unsignedIntTypes)
+            {
+                if (unsignedIntTypes[lhs.type]!! < unsignedIntTypes[rhs]!!)
+                {
+                    reportError(
+                        "check",
+                        stmnt.expr.pos,
+                        "Cannot assign value of type '$rhs' to variable '${stmnt.name}' of type '${lhs.type}'," +
+                                " as '$rhs' is greater in size"
+                    )
+                }
+
+                return
+            }
+
             reportError(
                 "check",
                 stmnt.expr.pos,
-                "Cannot assign value of type '$rhs' to variable '${stmnt.name}' of type '$lhs'"
+                "Cannot assign value of type '$rhs' to variable '${stmnt.name}' of type '${lhs.type}'"
             )
         }
     }
@@ -236,8 +267,42 @@ class Checker(val m: Module, val from: String, val others: List<Module>)
         // A type was specified during declaration
         if (stmnt.variable.type != null)
         {
+            val lhs = stmnt.variable.type
+
             if (stmnt.variable.type != rhs)
             {
+                // TODO: Shorten this code
+                if (lhs in signedIntTypes && rhs in signedIntTypes)
+                {
+                    if (signedIntTypes[lhs ]!! < signedIntTypes[rhs]!!)
+                    {
+                        reportError(
+                            "check",
+                            stmnt.expr.pos,
+                            "Cannot assign value of type '$rhs' to variable '${stmnt.variable.name}' of type '$lhs'," +
+                                    " as '$rhs' is greater in size"
+                        )
+                    }
+
+                    return
+                }
+
+                // TODO: ^^^ Duplicated here
+                if (lhs in unsignedIntTypes && rhs in unsignedIntTypes)
+                {
+                    if (unsignedIntTypes[lhs]!! < unsignedIntTypes[rhs]!!)
+                    {
+                        reportError(
+                            "check",
+                            stmnt.expr.pos,
+                            "Cannot assign value of type '$rhs' to variable '${stmnt.variable.name}' of type '$lhs'," +
+                                    " as '$rhs' is greater in size"
+                        )
+                    }
+
+                    return
+                }
+
                 reportError("check", stmnt.expr.pos, "Expected type'${stmnt.variable.type}', but found '$rhs'")
             }
         }
@@ -268,7 +333,7 @@ class Checker(val m: Module, val from: String, val others: List<Module>)
     {
         return when (expr)
         {
-            is NumberExpr   -> "int"
+            is NumberExpr   -> checkNumeric(expr)
             is BooleanExpr  -> "bool"
             is CharExpr     -> "char"
             is StringExpr   -> "string"
@@ -284,19 +349,40 @@ class Checker(val m: Module, val from: String, val others: List<Module>)
         val lhs = checkExpr(expr.left, scope)
         val rhs = checkExpr(expr.right, scope)
 
-        // We don't allow operations on different types yet
-        if (lhs != rhs)
+        if (expr.op in compOperators)
         {
-            reportError("check", expr.pos, "Cannot perform '${expr.op}' on values of different types")
+            if (lhs != rhs)
+            {
+                // Integers can be compared with any other integer, regardless of size
+                if (lhs in intTypes && rhs in intTypes)
+                {
+                    return "bool"
+                }
+
+                reportError("check", expr.pos, "Cannot perform '${expr.op}' on types '$lhs' and '$rhs'")
+            }
+
+            return "bool"
         }
 
-        val ops = possibleOps[lhs]
-        if (ops == null || ops[expr.op] == null)
+        // Handle arithmetic
+        if (lhs in intTypes && rhs in intTypes)
         {
-            reportError("check", expr.pos, "Cannot perform '${expr.op}' on type '$lhs'")
-        }
+            if (intTypes[lhs]!! < intTypes[rhs]!!)
+            {
+                reportError(
+                    "check",
+                    expr.pos,
+                    "Cannot perform arithmetic on types '$lhs' and '$rhs', as '$rhs' is greater in size"
+                )
+            }
 
-        return ops[expr.op]!!
+            return lhs
+        }
+        else
+        {
+                reportError("check", expr.pos, "Cannot perform '${expr.op}' on types '$lhs' and '$rhs'")
+        }
     }
 
     private fun checkCallExpr(expr: CallExpr, scope: Scope): String
@@ -336,45 +422,58 @@ class Checker(val m: Module, val from: String, val others: List<Module>)
             reportError("check", expr.pos, "Unknown type for variable '${expr.name}'")
     }
 
-    private val possibleOps = mapOf(
-        "int" to mapOf(
-            "+"  to "int",
-            "-"  to "int",
-            "*"  to "int",
-            "/"  to "int",
-            "==" to "bool",
-            "!=" to "bool",
-            ">"  to "bool",
-            "<"  to "bool",
-            ">=" to "bool",
-            "<=" to "bool",
-        ),
+    private fun checkNumeric(expr: NumberExpr): String
+    {
+        val value = expr.value.toDouble()
 
-        "bool" to mapOf(
-            "==" to "bool",
-            "!=" to "bool",
-            ">"  to "bool",
-            "<"  to "bool",
-            ">=" to "bool",
-            "<=" to "bool",
-        ),
+        return when
+        {
+            value <= UByte.MAX_VALUE.toDouble()  -> "u8"
+            value <= UShort.MAX_VALUE.toDouble() -> "u16"
+            value <= UInt.MAX_VALUE.toDouble()   -> "u32"
+            value <= ULong.MAX_VALUE.toDouble()  -> "u64"
 
-        "char" to mapOf(
-            "==" to "bool",
-            "!=" to "bool",
-            ">"  to "bool",
-            "<"  to "bool",
-            ">=" to "bool",
-            "<=" to "bool",
-        ),
+            else -> reportError("check", expr.pos, "Integer too big, use a better programming language")
+        }
+    }
 
-        "string" to mapOf(
-            "==" to "bool",
-            "!=" to "bool",
-            ">"  to "bool",
-            "<"  to "bool",
-            ">=" to "bool",
-            "<=" to "bool",
-        )
+    private val signedIntTypes = mapOf(
+        "u8"   to 8,
+        "u16"  to 16,
+        "u32"  to 32,
+        "u64"  to 64,
+        "uint" to 64,
+    )
+
+    private val unsignedIntTypes = mapOf(
+        "i8"  to 4,
+        "i16" to 8,
+        "i32" to 16,
+        "i64" to 32,
+        "int" to 32,
+    )
+
+    private val intTypes = signedIntTypes + unsignedIntTypes
+
+    private val otherTypes = setOf(
+        "string",
+        "char",
+        "bool",
+    )
+
+    private val compOperators = setOf(
+        "==",
+        "!=",
+        ">",
+        "<",
+        ">=",
+        "<=",
+    )
+
+    private val arithOperators = setOf(
+        "+",
+        "-",
+        "*",
+        "/"
     )
 }

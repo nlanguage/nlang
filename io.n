@@ -1,4 +1,3 @@
-import io
 import math
 
 fun print_i(a: int) @extern
@@ -6,7 +5,7 @@ fun print_c(a: char) @extern
 fun print_b(a: bool) @extern
 fun print_s(a: string) @extern
 
-fun print(x: int) @export
+fun print(x: u32) @export
 {
     print_i(x)
 }
@@ -24,10 +23,4 @@ fun print(x: bool) @export
 fun print(x: char) @export
 {
     print_c(x)
-}
-
-fun print_pow(x: int) @export
-{
-    say_hello("James")
-    print(pow_two(x))
 }

@@ -9,7 +9,7 @@ class Generator(val m: Module)
     fun generate(): String
     {
         // Includes
-        output.append("#include<stdbool.h>\n\n")
+        output.append("#include<stdbool.h>\n#include<stdint.h>\n#include<stddef.h>\n\n")
 
         // Generate forward declarations
         for (sym in m.syms)
@@ -217,7 +217,17 @@ class Generator(val m: Module)
         "void"   to "void",
         "char"   to "char",
         "bool"   to "bool",
-        "int"    to "int",
+        "u8"     to "uint8_t",
+        "u16"    to "uint16_t",
+        "u32"    to "uint32_t",
+        "u64"    to "uint64_t",
+        "uint"   to "size_t",
+        "i8"     to "int8_t",
+        "i16"    to "int16_t",
+        "i32"    to "int32_t",
+        "i64"    to "int64_t",
+        "int"    to "ptrdiff_t",
         "string" to "char*",
+
     )
 }

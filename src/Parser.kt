@@ -132,7 +132,7 @@ class Parser(val m: Module)
                 {
                     if (m.lexer.current.type == TokenType.IDENTIFIER)
                     {
-                        if (m.lexer.lookahead.text == "==")
+                        if (m.lexer.lookahead.text == "=")
                         {
                             statements += parseAssignStatement()
                         }

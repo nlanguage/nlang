@@ -1,15 +1,7 @@
 import io
 import math
 
-fun say_hello(name: string) @export
+fun main() -> i32
 {
-    print("Hello there, ")
-    print(name)
-}
-
-fun main() -> int
-{
-    say_hello("James")
-    print_pow(2)
-    return add_mul(5, 2)
+    
 }
