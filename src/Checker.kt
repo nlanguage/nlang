@@ -181,13 +181,26 @@ class Checker(val m: Module, val from: String, val others: List<Module>)
                 is DeclareStatement -> checkDeclarationStatement(stmnt, scope)
                 is ReturnStatement  -> checkReturnStatement(stmnt, proto, scope)
                 is ExprStatement    -> checkExprStatement(stmnt, scope)
-                is IfStatement      -> checkIfStatement(stmnt, proto, scope)
+                is WhenStatement    -> checkWhenStatement(stmnt, proto, scope)
+                is LoopStatement    -> checkLoopStatement(stmnt, proto, scope)
                 else                -> throw InternalCompilerException("Unchecked statement")
             }
         }
     }
 
-    private fun checkIfStatement(stmnt: IfStatement, proto: Prototype, scope: Scope)
+    private fun checkLoopStatement(stmnt: LoopStatement, proto: Prototype, scope: Scope)
+    {
+        val exprType = checkExpr(stmnt.expr, scope)
+
+        if (exprType != "bool")
+        {
+            reportError("check", stmnt.expr.pos, "expected boolean expression, found '$exprType'")
+        }
+
+        checkBlock(stmnt.block, proto, scope)
+    }
+
+    private fun checkWhenStatement(stmnt: WhenStatement, proto: Prototype, scope: Scope)
     {
         for (branch in stmnt.branches)
         {
@@ -220,38 +233,6 @@ class Checker(val m: Module, val from: String, val others: List<Module>)
 
         if (lhs.type != rhs)
         {
-            // TODO: Shorten this code
-            if (lhs.type in signedIntTypes && rhs in signedIntTypes)
-            {
-                if (signedIntTypes[lhs.type]!! < signedIntTypes[rhs]!!)
-                {
-                    reportError(
-                        "check",
-                        stmnt.expr.pos,
-                        "Cannot assign value of type '$rhs' to variable '${stmnt.name}' of type '${lhs.type}'," +
-                                " as '$rhs' is greater in size"
-                    )
-                }
-
-                return
-            }
-
-            // TODO: ^^^ Duplicated here
-            if (lhs.type in unsignedIntTypes && rhs in unsignedIntTypes)
-            {
-                if (unsignedIntTypes[lhs.type]!! < unsignedIntTypes[rhs]!!)
-                {
-                    reportError(
-                        "check",
-                        stmnt.expr.pos,
-                        "Cannot assign value of type '$rhs' to variable '${stmnt.name}' of type '${lhs.type}'," +
-                                " as '$rhs' is greater in size"
-                    )
-                }
-
-                return
-            }
-
             reportError(
                 "check",
                 stmnt.expr.pos,
@@ -267,42 +248,8 @@ class Checker(val m: Module, val from: String, val others: List<Module>)
         // A type was specified during declaration
         if (stmnt.variable.type != null)
         {
-            val lhs = stmnt.variable.type
-
             if (stmnt.variable.type != rhs)
             {
-                // TODO: Shorten this code
-                if (lhs in signedIntTypes && rhs in signedIntTypes)
-                {
-                    if (signedIntTypes[lhs ]!! < signedIntTypes[rhs]!!)
-                    {
-                        reportError(
-                            "check",
-                            stmnt.expr.pos,
-                            "Cannot assign value of type '$rhs' to variable '${stmnt.variable.name}' of type '$lhs'," +
-                                    " as '$rhs' is greater in size"
-                        )
-                    }
-
-                    return
-                }
-
-                // TODO: ^^^ Duplicated here
-                if (lhs in unsignedIntTypes && rhs in unsignedIntTypes)
-                {
-                    if (unsignedIntTypes[lhs]!! < unsignedIntTypes[rhs]!!)
-                    {
-                        reportError(
-                            "check",
-                            stmnt.expr.pos,
-                            "Cannot assign value of type '$rhs' to variable '${stmnt.variable.name}' of type '$lhs'," +
-                                    " as '$rhs' is greater in size"
-                        )
-                    }
-
-                    return
-                }
-
                 reportError("check", stmnt.expr.pos, "Expected type'${stmnt.variable.type}', but found '$rhs'")
             }
         }
@@ -333,7 +280,7 @@ class Checker(val m: Module, val from: String, val others: List<Module>)
     {
         return when (expr)
         {
-            is NumberExpr   -> checkNumeric(expr)
+            is NumberExpr   -> "uint"
             is BooleanExpr  -> "bool"
             is CharExpr     -> "char"
             is StringExpr   -> "string"
@@ -349,39 +296,18 @@ class Checker(val m: Module, val from: String, val others: List<Module>)
         val lhs = checkExpr(expr.left, scope)
         val rhs = checkExpr(expr.right, scope)
 
-        if (expr.op in compOperators)
+        if (lhs != rhs)
         {
-            if (lhs != rhs)
-            {
-                // Integers can be compared with any other integer, regardless of size
-                if (lhs in intTypes && rhs in intTypes)
-                {
-                    return "bool"
-                }
-
-                reportError("check", expr.pos, "Cannot perform '${expr.op}' on types '$lhs' and '$rhs'")
-            }
-
-            return "bool"
+            reportError("check", expr.pos, "Cannot perform '${expr.op}' on types '$lhs' and '$rhs'")
         }
 
-        // Handle arithmetic
-        if (lhs in intTypes && rhs in intTypes)
+        return if (expr.op in compOperators)
         {
-            if (intTypes[lhs]!! < intTypes[rhs]!!)
-            {
-                reportError(
-                    "check",
-                    expr.pos,
-                    "Cannot perform arithmetic on types '$lhs' and '$rhs', as '$rhs' is greater in size"
-                )
-            }
-
-            return lhs
+            "bool"
         }
         else
         {
-                reportError("check", expr.pos, "Cannot perform '${expr.op}' on types '$lhs' and '$rhs'")
+            lhs
         }
     }
 
@@ -415,51 +341,10 @@ class Checker(val m: Module, val from: String, val others: List<Module>)
     private fun checkVariableExpr(expr: VariableExpr, scope: Scope): String
     {
         val variable = scope[expr.name]?:
-        reportError("check", expr.pos, "Variable '${expr.name}' doesn't exist in the current scope")
+            reportError("check", expr.pos, "Variable '${expr.name}' doesn't exist in the current scope")
 
-        // TODO: Is this unreachable?
-        return variable.type ?:
-            reportError("check", expr.pos, "Unknown type for variable '${expr.name}'")
+        return variable.type!!
     }
-
-    private fun checkNumeric(expr: NumberExpr): String
-    {
-        val value = expr.value.toDouble()
-
-        return when
-        {
-            value <= UByte.MAX_VALUE.toDouble()  -> "u8"
-            value <= UShort.MAX_VALUE.toDouble() -> "u16"
-            value <= UInt.MAX_VALUE.toDouble()   -> "u32"
-            value <= ULong.MAX_VALUE.toDouble()  -> "u64"
-
-            else -> reportError("check", expr.pos, "Integer too big, use a better programming language")
-        }
-    }
-
-    private val signedIntTypes = mapOf(
-        "u8"   to 8,
-        "u16"  to 16,
-        "u32"  to 32,
-        "u64"  to 64,
-        "uint" to 64,
-    )
-
-    private val unsignedIntTypes = mapOf(
-        "i8"  to 4,
-        "i16" to 8,
-        "i32" to 16,
-        "i64" to 32,
-        "int" to 32,
-    )
-
-    private val intTypes = signedIntTypes + unsignedIntTypes
-
-    private val otherTypes = setOf(
-        "string",
-        "char",
-        "bool",
-    )
 
     private val compOperators = setOf(
         "==",
@@ -468,12 +353,5 @@ class Checker(val m: Module, val from: String, val others: List<Module>)
         "<",
         ">=",
         "<=",
-    )
-
-    private val arithOperators = setOf(
-        "+",
-        "-",
-        "*",
-        "/"
     )
 }

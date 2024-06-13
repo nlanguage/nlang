@@ -134,8 +134,9 @@ class Lexer(private val name: String, private val input: String)
             "return",
             "val",
             "var",
-            "if",
+            "loop",
             "else",
+            "while",
             "import", -> TokenType.KEYWORD
 
             "true",

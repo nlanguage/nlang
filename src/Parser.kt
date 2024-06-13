@@ -126,7 +126,8 @@ class Parser(val m: Module)
                 "val",
                 "var"    -> statements += parseDeclarationStatement()
 
-                "if"     -> statements += parseIfStatement()
+                "when"   -> statements += parseWhenStatement()
+                "loop"   -> statements += parseLoopStatement()
 
                 else     ->
                 {
@@ -158,7 +159,27 @@ class Parser(val m: Module)
         return Block(statements)
     }
 
-    private fun parseIfStatement(): Statement
+    private fun parseLoopStatement(): Statement
+    {
+        // Consume 'while'
+        m.lexer.eat()
+
+        var expr: Expr = BooleanExpr(true, m.lexer.current.pos)
+
+        if (m.lexer.current.text == "(")
+        {
+            // Consume '('
+            m.lexer.eat()
+
+            expr = parseExpr()
+
+            m.lexer.eatOnMatch(")")
+        }
+
+        return LoopStatement(expr, parseBlock())
+    }
+
+    private fun parseWhenStatement(): Statement
     {
         val branches = mutableListOf<Branch>()
 
@@ -170,7 +191,7 @@ class Parser(val m: Module)
             // Consume 'else'
             m.lexer.eat()
 
-            if (m.lexer.current.text == "if")
+            if (m.lexer.current.text == "when")
             {
                 branches += parseBranch()
             }
@@ -180,12 +201,12 @@ class Parser(val m: Module)
             }
         }
 
-        return IfStatement(branches, elseBlock)
+        return WhenStatement(branches, elseBlock)
     }
 
     private fun parseBranch(): Branch
     {
-        // Consume 'if'
+        // Consume 'when'
         m.lexer.eat()
 
         m.lexer.eatOnMatch("(")

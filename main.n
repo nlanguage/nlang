@@ -3,5 +3,22 @@ import math
 
 fun main() -> i32
 {
-    
+    val name = "James"
+
+    when (name == "James")
+    {
+        print(name)
+    }
+    else
+    {
+        print("You are not james")
+    }
+
+    var acc = 0
+
+    loop (acc < 25)
+    {
+        print("Forever isn't forever")
+        acc = acc + 1
+    }
 }

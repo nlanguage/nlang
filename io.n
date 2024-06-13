@@ -5,7 +5,42 @@ fun print_c(a: char) @extern
 fun print_b(a: bool) @extern
 fun print_s(a: string) @extern
 
+fun print(x: u8) @export
+{
+    print_i(x)
+}
+
+fun print(x: u16) @export
+{
+    print_i(x)
+}
+
 fun print(x: u32) @export
+{
+    print_i(x)
+}
+
+fun print(x: u64) @export
+{
+    print_i(x)
+}
+
+fun print(x: i8) @export
+{
+    print_i(x)
+}
+
+fun print(x: i16) @export
+{
+    print_i(x)
+}
+
+fun print(x: i32) @export
+{
+    print_i(x)
+}
+
+fun print(x: i64) @export
 {
     print_i(x)
 }

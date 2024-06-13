@@ -2,7 +2,12 @@ package ast
 
 sealed class Statement
 
-data class IfStatement(
+data class LoopStatement(
+    val expr: Expr,
+    val block: Block
+): Statement()
+
+data class WhenStatement(
     val branches: List<Branch>,
     val elseBlock: Block?
 ): Statement()

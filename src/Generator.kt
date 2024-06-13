@@ -79,15 +79,16 @@ class Generator(val m: Module)
     {
         output.append("\n{\n")
 
-        for (statement in block.statements)
+        for (stmnt in block.statements)
         {
-            when (statement)
+            when (stmnt)
             {
-                is ReturnStatement  -> genReturnStatement(statement)
-                is ExprStatement    -> genExprStatement(statement)
-                is DeclareStatement -> genDeclarationStatement(statement)
-                is AssignStatement  -> genAssignStatement(statement)
-                is IfStatement      -> genIfStatement(statement)
+                is ReturnStatement  -> genReturnStatement(stmnt)
+                is ExprStatement    -> genExprStatement(stmnt)
+                is DeclareStatement -> genDeclarationStatement(stmnt)
+                is AssignStatement  -> genAssignStatement(stmnt)
+                is WhenStatement    -> genWhenStatement(stmnt)
+                is LoopStatement    -> genLoopStatement(stmnt)
                 else                -> throw InternalCompilerException("Unhandled statement")
             }
 
@@ -97,7 +98,15 @@ class Generator(val m: Module)
         output.append("}\n\n")
     }
 
-    private fun genIfStatement(stmnt: IfStatement)
+    private fun genLoopStatement(stmnt: LoopStatement)
+    {
+        output.append("while  (")
+        genExpr(stmnt.expr)
+        output.append(")")
+        genBlock(stmnt.block)
+    }
+
+    private fun genWhenStatement(stmnt: WhenStatement)
     {
         // Generate primary branch
         output.append("if (")
