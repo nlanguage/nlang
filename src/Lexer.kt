@@ -136,8 +136,9 @@ class Lexer(private val name: String, private val input: String)
             "var",
             "loop",
             "else",
-            "while",
-            "import", -> TokenType.KEYWORD
+            "when",
+            "class",
+            "import"  -> TokenType.KEYWORD
 
             "true",
             "false"   -> TokenType.BOOLEAN
@@ -159,7 +160,7 @@ class Lexer(private val name: String, private val input: String)
     {
         if (current.text != expected)
         {
-            reportError("parsing", current.pos, "Expected $expected but found '${current.text}'")
+            reportError("parsing", current.pos, "Expected '$expected' but found '${current.text}'")
         }
 
         eat()
@@ -193,9 +194,19 @@ class Lexer(private val name: String, private val input: String)
 
         lookahead = when (cur)
         {
-            '*',
-            '/',
-            '+' -> Token(TokenType.OPERATOR, cur.toString(), FilePos(name, line, col))
+            '+' ->
+            {
+                if (peek() == '=')
+                {
+                    // Consume '='
+                    advance()
+                    Token(TokenType.DELIMITER, "+=", FilePos(name, line, col))
+                }
+                else
+                {
+                    Token(TokenType.OPERATOR, "+", FilePos(name, line, col))
+                }
+            }
 
             '-' ->
             {
@@ -205,9 +216,43 @@ class Lexer(private val name: String, private val input: String)
                     advance()
                     Token(TokenType.DELIMITER, "->", FilePos(name, line, col))
                 }
+                else if (peek() == '=')
+                {
+                    // Consume '='
+                    advance()
+                    Token(TokenType.DELIMITER, "-=", FilePos(name, line, col))
+                }
                 else
                 {
                     Token(TokenType.OPERATOR, "-", FilePos(name, line, col))
+                }
+            }
+
+            '*' ->
+            {
+                if (peek() == '=')
+                {
+                    // Consume '='
+                    advance()
+                    Token(TokenType.DELIMITER, "*=", FilePos(name, line, col))
+                }
+                else
+                {
+                    Token(TokenType.OPERATOR, "*", FilePos(name, line, col))
+                }
+            }
+
+            '/' ->
+            {
+                if (peek() == '=')
+                {
+                    // Consume '='
+                    advance()
+                    Token(TokenType.DELIMITER, "/=", FilePos(name, line, col))
+                }
+                else
+                {
+                    Token(TokenType.OPERATOR, "/", FilePos(name, line, col))
                 }
             }
 

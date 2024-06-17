@@ -1,4 +1,5 @@
 import ast.*
+import java.io.File
 
 typealias Scope = HashMap<String, Variable>
 
@@ -29,15 +30,19 @@ class Checker(val m: Module, val from: String, val others: List<Module>)
             {
                 is FunctionDecl -> registerFunction(node.proto, node.pos)
                 is FunctionDef  -> registerFunction(node.proto, node.pos)
+                is Class        -> registerclass(node)
                 else            -> throw InternalCompilerException("Unhandled top-level node")
             }
         }
 
         for (node in m.nodes)
         {
-            if (node is FunctionDecl)
+            when (node)
             {
-                checkFunction(node)
+                is FunctionDef  -> {}
+                is FunctionDecl -> checkFunction(node)
+                is Class        -> checkClass(node)
+                else            -> throw InternalCompilerException("Unhandled top-level node $node")
             }
         }
 
@@ -72,7 +77,7 @@ class Checker(val m: Module, val from: String, val others: List<Module>)
             Checker(imported, m.file.name, others).check()
         }
 
-        for (impSym in imported.syms)
+        for (impSym in imported.funcs)
         {
             if (impSym.value.flags.contains(Flag("export")))
             {
@@ -82,7 +87,7 @@ class Checker(val m: Module, val from: String, val others: List<Module>)
                 }
 
                 // Make sure imports do not conflict with our symbols
-                if (m.syms[impSym.value.name] != null)
+                if (m.funcs[impSym.value.name] != null)
                 {
                     reportError(
                         "check",
@@ -97,7 +102,7 @@ class Checker(val m: Module, val from: String, val others: List<Module>)
                 val externProto = impSym.value.copy()
                 externProto.flags += Flag("imported")
 
-                m.syms[impSym.value.name] = externProto
+                m.funcs[impSym.value.name] = externProto
 
                 // Defintions can only be added at the end, otherwise they are duplicated by registerFunction()
                 defs += FunctionDef(externProto, import.pos)
@@ -108,10 +113,15 @@ class Checker(val m: Module, val from: String, val others: List<Module>)
         return defs
     }
 
+    private fun registerclass(node: Class)
+    {
+        m.types[node.name] = listOf()
+    }
+
     // TODO: Fix this function. Figure out how to extract proto from both decl and def
     private fun registerFunction(proto: Prototype, pos: FilePos)
     {
-        if (m.syms[proto.name] != null)
+        if (m.funcs[proto.name] != null)
         {
             reportError(
                 "check",
@@ -122,7 +132,7 @@ class Checker(val m: Module, val from: String, val others: List<Module>)
 
         if (proto.flags.contains(Flag("extern")))
         {
-            m.syms[proto.name] = proto
+            m.funcs[proto.name] = proto
             return
         }
 
@@ -142,19 +152,25 @@ class Checker(val m: Module, val from: String, val others: List<Module>)
             }
         }
 
-        if (m.syms[protoName] != null)
+        if (m.funcs[protoName] != null)
         {
             reportError(
                 "check",
                 pos,
                 "Multiple definitions of '${proto.name}' with the same parameters is not allowed"
             )
-
-            return
         }
 
         proto.name = protoName
-        m.syms[protoName] = proto
+        m.funcs[protoName] = proto
+    }
+
+    private fun checkClass(node: Class)
+    {
+        for (memb in node.members)
+        {
+            checkType(memb.type!!, memb.pos)
+        }
     }
 
     private fun checkFunction(func: FunctionDecl)
@@ -194,7 +210,7 @@ class Checker(val m: Module, val from: String, val others: List<Module>)
 
         if (exprType != "bool")
         {
-            reportError("check", stmnt.expr.pos, "expected boolean expression, found '$exprType'")
+            reportError("check", stmnt.pos, "expected boolean expression, found '$exprType'")
         }
 
         checkBlock(stmnt.block, proto, scope)
@@ -222,7 +238,7 @@ class Checker(val m: Module, val from: String, val others: List<Module>)
     private fun checkAssignStatement(stmnt: AssignStatement, scope: Scope)
     {
         val lhs = scope[stmnt.name] ?:
-        reportError("check", stmnt.expr.pos, "Variable '${stmnt.name}' not declared in this scope")
+                  reportError("check", stmnt.expr.pos, "Variable '${stmnt.name}' not declared in this scope")
 
         if (!lhs.mutable)
         {
@@ -243,22 +259,41 @@ class Checker(val m: Module, val from: String, val others: List<Module>)
 
     private fun checkDeclarationStatement(stmnt: DeclareStatement, scope: Scope)
     {
-        val rhs = checkExpr(stmnt.expr, scope)
-
-        // A type was specified during declaration
-        if (stmnt.variable.type != null)
+        if (stmnt.variable.type == null)
         {
-            if (stmnt.variable.type != rhs)
+            if (stmnt.expr != null)
             {
-                reportError("check", stmnt.expr.pos, "Expected type'${stmnt.variable.type}', but found '$rhs'")
+                stmnt.variable.type = checkExpr(stmnt.expr, scope)
+            }
+            else
+            {
+                reportError(
+                    "check",
+                    stmnt.pos,
+                    "Cannot infer type for '${stmnt.variable.name}'"
+                )
             }
         }
-        else
+        else if (stmnt.expr != null)
         {
-            stmnt.variable.type = rhs
+            val rhs = checkExpr(stmnt.expr, scope)
+            if (rhs != stmnt.variable.type)
+            {
+                reportError("check", stmnt.pos, "Expected type'${stmnt.variable.type}', but found '$rhs'")
+            }
         }
 
+        checkType(stmnt.variable.type!!, stmnt.pos)
+
         scope[stmnt.variable.name] = stmnt.variable
+    }
+
+    private fun checkType(type: String, pos: FilePos)
+    {
+        if (m.types[type] == null)
+        {
+            reportError("check", pos, "Unknown type '$type'")
+        }
     }
 
     private fun checkExprStatement(stmnt: ExprStatement, scope: Scope)
@@ -272,7 +307,7 @@ class Checker(val m: Module, val from: String, val others: List<Module>)
 
         if (rhs != proto.returnType)
         {
-            reportError("check", stmnt.expr.pos, "Expected a return-type of '${proto.returnType}', but found '$rhs'")
+            reportError("check", stmnt.pos, "Expected a return-type of '${proto.returnType}', but found '$rhs'")
         }
     }
 
@@ -296,19 +331,30 @@ class Checker(val m: Module, val from: String, val others: List<Module>)
         val lhs = checkExpr(expr.left, scope)
         val rhs = checkExpr(expr.right, scope)
 
-        if (lhs != rhs)
+        if (!m.types.contains(lhs))
         {
-            reportError("check", expr.pos, "Cannot perform '${expr.op}' on types '$lhs' and '$rhs'")
+            reportError("check", expr.pos, "Unknown type $lhs")
         }
 
-        return if (expr.op in compOperators)
+        if (!m.types.contains(rhs))
         {
-            "bool"
+            reportError("check", expr.pos, "Unknown type $rhs")
         }
-        else
+
+        val op = m.types[lhs]!!.find { it.name == expr.op && it.rhs == rhs } ?:
+                 reportError("check", expr.pos, "Cannot perform '${expr.op}' on types '$lhs' and '$rhs'")
+
+        // If the op has an associated prototype, then we need to replace this binary expression with a call
+        // TODO: This code will not be checked till we implement op overloading
+        if (op.func != null)
         {
-            lhs
+            var pos = expr.pos
+            var callExpr = expr as Expr
+            callExpr = CallExpr(op.func, listOf(expr.left, expr.right), pos)
         }
+
+        // Return type will always exist in a binary expression
+        return op.ret!!
     }
 
     private fun checkCallExpr(expr: CallExpr, scope: Scope): String
@@ -323,14 +369,14 @@ class Checker(val m: Module, val from: String, val others: List<Module>)
 
         val paramList = expr.args.joinToString(", ") { checkExpr(it, scope) }
 
-        val proto = m.syms[mangled] ?: m.syms[expr.callee] ?:
-        reportError(
-            "check",
-            expr.pos,
-            "No matching function '${expr.callee}' found accepting parameters ($paramList)"
-        )
+        val proto = m.funcs[mangled] ?: m.funcs[expr.callee] ?:
+            reportError(
+                "check",
+                expr.pos,
+                "No matching function '${expr.callee}' found accepting parameters ($paramList)"
+            )
 
-        if (m.syms.containsKey(mangled))
+        if (m.funcs.containsKey(mangled))
         {
             expr.callee = mangled
         }
@@ -346,12 +392,5 @@ class Checker(val m: Module, val from: String, val others: List<Module>)
         return variable.type!!
     }
 
-    private val compOperators = setOf(
-        "==",
-        "!=",
-        ">",
-        "<",
-        ">=",
-        "<=",
-    )
+
 }

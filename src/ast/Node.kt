@@ -13,6 +13,11 @@ data class FunctionDecl(
     override val pos: FilePos
 ): Node(pos)
 
+data class Class(
+    val name: String,
+    val members: Set<Variable>,
+    override val pos: FilePos
+): Node(pos)
 
 data class Import(
     val name: String,

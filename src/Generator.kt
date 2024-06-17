@@ -12,7 +12,7 @@ class Generator(val m: Module)
         output.append("#include<stdbool.h>\n#include<stdint.h>\n#include<stddef.h>\n\n")
 
         // Generate forward declarations
-        for (sym in m.syms)
+        for (sym in m.funcs)
         {
             genPrototype(sym.value)
             output.append(";\n")
@@ -142,8 +142,13 @@ class Generator(val m: Module)
         val type = cTypes[stmnt.variable.type] ?:
         throw InternalCompilerException("Unable tp find c-type for ${stmnt.variable.type}")
 
-        output.append("$type ${stmnt.variable.name} =")
-        genExpr(stmnt.expr)
+        output.append("$type ${stmnt.variable.name}")
+
+        if (stmnt.expr != null)
+        {
+            output.append(" = ")
+            genExpr(stmnt.expr)
+        }
     }
 
     private fun genExprStatement(stmnt: ExprStatement)

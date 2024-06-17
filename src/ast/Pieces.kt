@@ -9,7 +9,8 @@ data class FilePos(
 data class Variable(
     val name: String,
     var type: String?,
-    val mutable: Boolean
+    val mutable: Boolean,
+    val pos: FilePos
 )
 
 data class Block(

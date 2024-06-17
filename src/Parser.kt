@@ -10,8 +10,9 @@ class Parser(val m: Module)
         {
             when (m.lexer.current.text)
             {
-                "fun"    -> parseFunction()
-                "import" -> parseImport()
+                "fun"    -> m.nodes += parseFunction()
+                "import" -> m.nodes += parseImport()
+                "class"  -> m.nodes += parseClass()
 
                 else     ->
                 {
@@ -25,17 +26,71 @@ class Parser(val m: Module)
         }
     }
 
-    private fun parseImport()
+    private fun parseImport(): Import
     {
         // Consume 'import'
         m.lexer.eat()
 
         val pos = m.lexer.current.pos
 
-        m.nodes += Import(m.lexer.eat(), pos)
+        return Import(m.lexer.eat(), pos)
     }
 
-    private fun parseFunction()
+    private fun parseClass(): Class
+    {
+        val pos = m.lexer.current.pos;
+
+        // consume 'class'
+        m.lexer.eat()
+
+        val name = m.lexer.eat()
+
+        m.lexer.eatOnMatch("(")
+
+        val members = mutableSetOf<Variable>()
+        while (m.lexer.current.text != ")")
+        {
+            val pos = m.lexer.current.pos
+
+            val mutable = when (m.lexer.eat())
+            {
+                "val" -> false
+                "var" -> true
+                else  ->
+                {
+                    reportError(
+                        "parse",
+                        m.lexer.current.pos,
+                        "Expected member declaration, found '${m.lexer.current.text}'"
+                    )
+                }
+            }
+
+            val name = m.lexer.eat()
+
+            m.lexer.eatOnMatch(":")
+
+            val type = m.lexer.eat()
+
+            if (members.find { it.name == name } != null)
+            {
+                reportError(
+                    "parse",
+                    pos,
+                    "Class cannot have more than one member named '$name'"
+                )
+            }
+
+            members += Variable(name, type, mutable, pos)
+        }
+
+        // Consume ')'
+        m.lexer.eat()
+
+        return Class(name, members, pos)
+    }
+
+    private fun parseFunction(): Node
     {
         val pos = m.lexer.current.pos
 
@@ -46,11 +101,11 @@ class Parser(val m: Module)
 
         if (m.lexer.current.text == "{")
         {
-            m.nodes += FunctionDecl(proto, parseBlock(), pos)
+            return FunctionDecl(proto, parseBlock(), pos)
         }
         else
         {
-            m.nodes += FunctionDef(proto, pos)
+            return FunctionDef(proto, pos)
         }
     }
 
@@ -65,13 +120,15 @@ class Parser(val m: Module)
         {
             while (true)
             {
+                val pos = m.lexer.current.pos
+
                 val name = m.lexer.eat()
 
                 m.lexer.eatOnMatch(":")
 
                 val type = m.lexer.eat()
 
-                args += Variable(name, type, false)
+                args += Variable(name, type, false, pos)
 
                 if (m.lexer.current.text == ")") {
                     break;
@@ -110,7 +167,6 @@ class Parser(val m: Module)
         return Flag(m.lexer.eat())
     }
 
-
     private fun parseBlock(): Block
     {
         m.lexer.eatOnMatch("{")
@@ -119,6 +175,8 @@ class Parser(val m: Module)
 
         while (m.lexer.current.text != "}")
         {
+            val pos = m.lexer.current.pos
+
             when (m.lexer.current.text)
             {
                 "return" -> statements += parseReturnStatement()
@@ -133,13 +191,13 @@ class Parser(val m: Module)
                 {
                     if (m.lexer.current.type == TokenType.IDENTIFIER)
                     {
-                        if (m.lexer.lookahead.text == "=")
+                        if (m.lexer.lookahead.text in assignOps)
                         {
                             statements += parseAssignStatement()
                         }
                         else
                         {
-                            statements += ExprStatement(parseExpr())
+                            statements += ExprStatement(parseExpr(), pos)
                         }
                     }
                     else
@@ -161,6 +219,8 @@ class Parser(val m: Module)
 
     private fun parseLoopStatement(): Statement
     {
+        val pos = m.lexer.current.pos
+
         // Consume 'while'
         m.lexer.eat()
 
@@ -176,11 +236,13 @@ class Parser(val m: Module)
             m.lexer.eatOnMatch(")")
         }
 
-        return LoopStatement(expr, parseBlock())
+        return LoopStatement(expr, parseBlock(), pos)
     }
 
     private fun parseWhenStatement(): Statement
     {
+        val pos = m.lexer.current.pos
+
         val branches = mutableListOf<Branch>()
 
         branches += parseBranch()
@@ -201,7 +263,7 @@ class Parser(val m: Module)
             }
         }
 
-        return WhenStatement(branches, elseBlock)
+        return WhenStatement(branches, elseBlock, pos)
     }
 
     private fun parseBranch(): Branch
@@ -219,26 +281,36 @@ class Parser(val m: Module)
 
     private fun parseAssignStatement(): Statement
     {
+        val pos = m.lexer.current.pos
         val name = m.lexer.eat()
 
-        m.lexer.eatOnMatch("=")
+        if (m.lexer.current.text !in assignOps)
+        {
+            reportError(
+                "parse",
+                m.lexer.current.pos,
+                "Expected assignment operator, found '${m.lexer.current.text}'"
+            )
+        }
+
+        // Consume assign operator
+        m.lexer.eat()
 
         val expr = parseExpr()
 
-        return AssignStatement(name, expr)
+        return AssignStatement(name, expr, pos)
     }
 
     private fun parseDeclarationStatement(): Statement
     {
-        val mutable = when (m.lexer.current.text)
+        val pos = m.lexer.current.pos
+
+        val mutable = when (m.lexer.eat())
         {
             "val" -> false
             "var" -> true
             else  -> throw InternalCompilerException("Impossible case reached");
         }
-
-        // Consume 'val' or 'var'
-        m.lexer.eat()
 
         val name = m.lexer.eat()
 
@@ -251,19 +323,24 @@ class Parser(val m: Module)
             type = m.lexer.eat()
         }
 
-        m.lexer.eatOnMatch("=")
+        var expr: Expr? = null
+        if (m.lexer.current.text == "=")
+        {
+            m.lexer.eat()
+            expr = parseExpr()
+        }
 
-        val expr = parseExpr()
-
-        return DeclareStatement(Variable(name, type, mutable), expr)
+        return DeclareStatement(Variable(name, type, mutable, pos), expr, pos)
     }
 
     private fun parseReturnStatement(): Statement
     {
+        val pos = m.lexer.current.pos
+
         // Consume 'return'
         m.lexer.eat()
 
-        return ReturnStatement(parseExpr())
+        return ReturnStatement(parseExpr(), pos)
     }
 
     private fun parseExpr(): Expr
@@ -417,6 +494,8 @@ class Parser(val m: Module)
         // -1 is used in a comparison
         return opPrecedence[m.lexer.current.text] ?: -1
     }
+
+    private val assignOps = setOf("=", "+=", "-=", "*=", "/=")
 
     private val opPrecedence = mapOf(
         "==" to 50,

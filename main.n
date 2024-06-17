@@ -1,24 +1,8 @@
 import io
-import math
 
-fun main() -> i32
+fun main()
 {
-    val name = "James"
+    var x: uint = 10
 
-    when (name == "James")
-    {
-        print(name)
-    }
-    else
-    {
-        print("You are not james")
-    }
-
-    var acc = 0
-
-    loop (acc < 25)
-    {
-        print("Forever isn't forever")
-        acc = acc + 1
-    }
+    x += 10
 }
