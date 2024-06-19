@@ -28,7 +28,9 @@ data class CharExpr(
 ): Expr(pos)
 
 data class CallExpr(
-    var callee: String, val args: List<Expr>,
+    var callee: String,
+    var cCallee: String,
+    val args: List<Expr>,
     override val pos: FilePos
 ): Expr(pos)
 

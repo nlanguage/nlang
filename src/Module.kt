@@ -1,15 +1,108 @@
+import ast.*
 import java.io.File
-
-import ast.Node
-import ast.Prototype
-
-typealias FuncTable = HashMap<String, Prototype>
 
 class Module(val file: File)
 {
     var lexer   = Lexer(file.name, file.readText())
     var nodes   = mutableListOf<Node>()
-    val funcs   = FuncTable()
+    val funcs   = mutableListOf<Prototype>()
     val types   = TypeTable(builtinTypes)
     var checked = false
+
+    fun handleImports(from: String, others: List<Module>)
+    {
+        // Cannot remove elements from array while iterating over them
+        val toRemove = mutableListOf<Node>()
+        val toAdd = mutableListOf<Node>()
+
+        for (import in nodes)
+        {
+            if (import is Import)
+            {
+                toRemove += import
+
+                // Check for cyclical dependencies
+                if (import.name + ".n" == from)
+                {
+                    reportError("check", import.pos, "Cyclical dependency on '${import.name}'")
+                }
+
+                // Check for dependency on self
+                if (import.name + ".n" == file.name)
+                {
+                    reportError("check", import.pos, "'${import.name}' cannot depend on itself")
+                }
+
+                val imported = others.find { it.file.name == import.name + ".n"} ?:
+                    reportError("check", import.pos, "No file '${import.name}' found")
+
+                // Recursively check other units. This recursion will go on until a file with no imports is found,
+                // which is the bottom of the import tree
+                if (!imported.checked)
+                {
+                    imported.handleImports(file.name, others)
+                }
+
+                for (impSym in imported.funcs)
+                {
+                    if (impSym.flags.contains(Flag("export")))
+                    {
+                        // Do not import the import's imports
+                        if (impSym.flags.contains(Flag("imported")))
+                        {
+                            continue
+                        }
+
+                        val externProto = impSym.copy()
+
+                        externProto.flags += Flag("imported")
+
+                        funcs += externProto
+                        toAdd += FunctionDef(externProto, import.pos)
+
+                    }
+                }
+            }
+        }
+
+        nodes.removeAll(toRemove)
+        nodes += toAdd
+
+        checked = true
+    }
+
+    fun registerSymbols()
+    {
+        for (node in nodes)
+        {
+            when (node)
+            {
+                is FunctionDef  -> registerFunction(node)
+                is FunctionDecl -> registerFunction(node.def)
+                else -> {}
+            }
+        }
+    }
+
+    private fun registerFunction(def: FunctionDef)
+    {
+        // External defs and 'main' are excluded from name mangling
+        if (def.proto.flags.contains(Flag("extern")) || def.proto.name == "main")
+        {
+            def.proto.cName = def.proto.name
+        }
+        else
+        {
+            def.proto.cName = buildString {
+                append("_Z${def.proto.name}")
+
+                for (arg in def.proto.args)
+                {
+                    append("_${arg.type.value}")
+                }
+            }
+        }
+
+        funcs += def.proto
+    }
 }

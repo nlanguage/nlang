@@ -10,11 +10,18 @@ fun buildProject(name: String, filePaths: List<String>)
 
         Parser(module).parse()
 
+        module.registerSymbols()
+
         modules += module
     }
 
-    // Checking in recursive, starting from the main module
-    Checker(modules[0], "", modules).check()
+    // Recursively handle imports
+    modules[0].handleImports("", modules)
+
+    for (module in modules)
+    {
+        Checker(module).check()
+    }
 
     val irFilePaths = mutableListOf<String>()
     for (module in modules)
@@ -26,6 +33,7 @@ fun buildProject(name: String, filePaths: List<String>)
         "clang",
         "-Wno-unused-value",
         "-Wno-parentheses-equality",
+        "-Wno-string-compare",
         "-o",
         name,
         "stdlib.c",

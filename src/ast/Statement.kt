@@ -26,7 +26,6 @@ data class ExprStatement(
     override val pos: FilePos
 ): Statement(pos)
 
-
 data class DeclareStatement(
     val variable: Variable,
     val expr: Expr?,

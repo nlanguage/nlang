@@ -8,10 +8,9 @@ data class FunctionDef(
 ): Node(pos)
 
 data class FunctionDecl(
-    val proto: Prototype,
+    val def: FunctionDef,
     val body: Block,
-    override val pos: FilePos
-): Node(pos)
+): Node(def.pos)
 
 data class Class(
     val name: String,

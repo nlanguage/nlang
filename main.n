@@ -1,8 +1,23 @@
 import io
+import math
 
-fun main()
+fun main() -> i32
 {
-    var x: uint = 10
+    val r: int = 4
+    print(r)
 
-    x += 10
+    val greet = "Hello"
+
+    when (greet == "Hello")
+    {
+        print("Hi there")
+        print_hello()
+        print(pow_two(4))
+    }
+    else
+    {
+        var x = true
+
+        print(x)
+    }
 }

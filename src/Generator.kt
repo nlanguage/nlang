@@ -12,9 +12,9 @@ class Generator(val m: Module)
         output.append("#include<stdbool.h>\n#include<stdint.h>\n#include<stddef.h>\n\n")
 
         // Generate forward declarations
-        for (sym in m.funcs)
+        for (func in m.funcs)
         {
-            genPrototype(sym.value)
+            genPrototype(func)
             output.append(";\n")
         }
 
@@ -43,7 +43,7 @@ class Generator(val m: Module)
 
     private fun genFunctionDecl(func: FunctionDecl)
     {
-        genPrototype(func.proto)
+        genPrototype(func.def.proto)
         genBlock(func.body)
     }
 
@@ -61,14 +61,12 @@ class Generator(val m: Module)
 
     private fun genPrototype(proto: Prototype)
     {
-        val returnType = cTypes[proto.returnType] ?:
-        throw InternalCompilerException("Unable tp find c-type for ${proto.returnType}")
+        val returnType = m.types[proto.returnType]!!.cName
 
-        output.append("$returnType ${proto.name}(")
+        output.append("$returnType ${proto.cName}(")
         output.append(proto.args.joinToString(", ")
         {
-            val type = cTypes[it.type] ?:
-            throw InternalCompilerException("Unable tp find c-type for ${it.type}")
+            val type = m.types[it.type.value]!!.cName
 
             "$type ${it.name}"
         })
@@ -139,8 +137,7 @@ class Generator(val m: Module)
 
     private fun genDeclarationStatement(stmnt: DeclareStatement)
     {
-        val type = cTypes[stmnt.variable.type] ?:
-        throw InternalCompilerException("Unable tp find c-type for ${stmnt.variable.type}")
+        val type = m.types[stmnt.variable.type.value]!!.cName
 
         output.append("$type ${stmnt.variable.name}")
 
@@ -188,7 +185,7 @@ class Generator(val m: Module)
 
     private fun genCallExpr(expr: CallExpr)
     {
-        output.append("${expr.callee} (")
+        output.append("${expr.cCallee} (")
 
         for (arg in expr.args)
         {
@@ -226,22 +223,4 @@ class Generator(val m: Module)
     {
         output.append(expr.name)
     }
-
-    private val cTypes = mapOf(
-        "void"   to "void",
-        "char"   to "char",
-        "bool"   to "bool",
-        "u8"     to "uint8_t",
-        "u16"    to "uint16_t",
-        "u32"    to "uint32_t",
-        "u64"    to "uint64_t",
-        "uint"   to "size_t",
-        "i8"     to "int8_t",
-        "i16"    to "int16_t",
-        "i32"    to "int32_t",
-        "i64"    to "int64_t",
-        "int"    to "ptrdiff_t",
-        "string" to "char*",
-
-    )
 }

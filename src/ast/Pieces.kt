@@ -8,7 +8,7 @@ data class FilePos(
 
 data class Variable(
     val name: String,
-    var type: String?,
+    var type: TypeName,
     val mutable: Boolean,
     val pos: FilePos
 )
@@ -28,7 +28,13 @@ data class Flag(
 
 data class Prototype(
     var name: String,
+    var cName: String,
     val args: List<Variable>,
     val returnType: String,
     var flags: List<Flag>,
 )
+
+data class TypeName(var value: String?)
+
+sealed class Argument(open val pos: FilePos)
+

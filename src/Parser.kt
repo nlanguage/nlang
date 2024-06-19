@@ -81,7 +81,7 @@ class Parser(val m: Module)
                 )
             }
 
-            members += Variable(name, type, mutable, pos)
+            members += Variable(name, TypeName(type), mutable, pos)
         }
 
         // Consume ')'
@@ -101,7 +101,7 @@ class Parser(val m: Module)
 
         if (m.lexer.current.text == "{")
         {
-            return FunctionDecl(proto, parseBlock(), pos)
+            return FunctionDecl(FunctionDef(proto, pos), parseBlock())
         }
         else
         {
@@ -128,7 +128,7 @@ class Parser(val m: Module)
 
                 val type = m.lexer.eat()
 
-                args += Variable(name, type, false, pos)
+                args += Variable(name, TypeName(type), false, pos)
 
                 if (m.lexer.current.text == ")") {
                     break;
@@ -156,7 +156,7 @@ class Parser(val m: Module)
             flags += parseFlag()
         }
 
-        return Prototype(name, args, returnType, flags)
+        return Prototype(name, "", args, returnType, flags)
     }
 
     private fun parseFlag(): Flag
@@ -330,7 +330,7 @@ class Parser(val m: Module)
             expr = parseExpr()
         }
 
-        return DeclareStatement(Variable(name, type, mutable, pos), expr, pos)
+        return DeclareStatement(Variable(name, TypeName(type), mutable, pos), expr, pos)
     }
 
     private fun parseReturnStatement(): Statement
@@ -485,7 +485,7 @@ class Parser(val m: Module)
         // Consume ')'
         m.lexer.eat()
 
-        return CallExpr(ident, args, pos)
+        return CallExpr(ident, "", args, pos)
     }
 
     // Get the precedence of the current token (lexer.currentTok)

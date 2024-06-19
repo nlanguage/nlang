@@ -1,5 +1,4 @@
 import ast.Prototype
-import java.util.Dictionary
 
 data class Operator(
     val name: String,
@@ -8,27 +7,56 @@ data class Operator(
     val func: String?
 )
 
-typealias TypeTable = HashMap<String, List<Operator>>
+data class Type(
+    val name: String,
+    val cName: String,
+    val ops: List<Operator>,
+    val funcs: List<Prototype>
+)
+
+typealias TypeTable = HashMap<String, Type>
 
 val builtinTypes = hashMapOf(
-    "u8"   to genArithOps("u8")   + genCompOps("u8")   + genAssignOps("u8"),
-    "u16"  to genArithOps("u16")  + genCompOps("u16")  + genAssignOps("u16"),
-    "u32"  to genArithOps("u32")  + genCompOps("u32")  + genAssignOps("u32"),
-    "u64"  to genArithOps("u64")  + genCompOps("u64")  + genAssignOps("u64"),
-    "uint" to genArithOps("uint") + genCompOps("uint") + genAssignOps("uint"),
+    genArithType("u8", "uint8_t"),
+    genArithType("u16", "uint16_t"),
+    genArithType("u32", "uint32_t"),
+    genArithType("u64", "uint64_t"),
+    genArithType("uint", "size_t"),
 
-    "i8"   to genArithOps("i8")   + genCompOps("i8")   + genAssignOps("i8"),
-    "i16"  to genArithOps("i16")  + genCompOps("i16")  + genAssignOps("i16"),
-    "i32"  to genArithOps("i32")  + genCompOps("i32")  + genAssignOps("i32"),
-    "i64"  to genArithOps("i64")  + genCompOps("i64")  + genAssignOps("i64"),
-    "int"  to genArithOps("int")  + genCompOps("int")  + genAssignOps("int"),
+    genArithType("i8", "int8_t"),
+    genArithType("i16", "int16_t"),
+    genArithType("i32", "int32_t"),
+    genArithType("i64", "int64_t"),
+    genArithType("int", "ptrdiff_t"),
 
-    "bool"   to genCompOps("bool")   + Operator("=", "bool", null, null),
-    "string" to genCompOps("string") + Operator("=", "string", null, null),
-    "char"   to genCompOps("char")   + Operator("=", "char", null, null),
+    genType("bool", "bool"),
+    genType("char", "char"),
+    genType("string", "char*"),
+
+    "void" to Type("void", "void", listOf(), listOf())
 )
 
 // Helper methods to reduce the code-size of the builtin type table
+
+fun genArithType(name: String, cName: String): Pair<String, Type>
+{
+    return name to Type(
+        name,
+        cName,
+        genArithOps(name) + genCompOps(name) + genAssignOps(name),
+        listOf()
+    )
+}
+
+fun genType(name: String, cName: String): Pair<String, Type>
+{
+    return name to Type(
+        name,
+        cName,
+        genCompOps(name)  + Operator("=", name, null, null),
+        listOf()
+    )
+}
 
 fun genArithOps(type: String): List<Operator>
 {
