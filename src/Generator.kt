@@ -26,9 +26,12 @@ class Generator(val m: Module)
             {
                 is FunctionDecl -> genFunctionDecl(node)
                 is FunctionDef  -> genFunctionDef(node)
+                is Class        -> genClass(node)
                 is Import       -> {}
                 else            -> throw InternalCompilerException("Unhandled top-level node $node")
             }
+
+            output.append("\n")
         }
 
         var irFile = File(
@@ -39,6 +42,22 @@ class Generator(val m: Module)
         irFile.writeText(output.toString())
 
         return irFile.path
+    }
+
+    private fun genClass(clas: Class)
+    {
+        val classType = m.types[clas.name]!!
+
+        output.append("typedef struct ${classType.cName}\n{\n")
+
+        for (memb in clas.members)
+        {
+            val type = m.types[memb.type.alternatives.first()]!!
+
+            output.append("${type.cName} ${memb.name};\n")
+        }
+
+        output.append("} ${classType.cName};\n")
     }
 
     private fun genFunctionDecl(func: FunctionDecl)
@@ -66,7 +85,7 @@ class Generator(val m: Module)
         output.append("$returnType ${proto.cName}(")
         output.append(proto.args.joinToString(", ")
         {
-            val type = m.types[it.type.value]!!.cName
+            val type = m.types[it.type.alternatives.first()]!!.cName
 
             "$type ${it.name}"
         })
@@ -84,7 +103,6 @@ class Generator(val m: Module)
                 is ReturnStatement  -> genReturnStatement(stmnt)
                 is ExprStatement    -> genExprStatement(stmnt)
                 is DeclareStatement -> genDeclarationStatement(stmnt)
-                is AssignStatement  -> genAssignStatement(stmnt)
                 is WhenStatement    -> genWhenStatement(stmnt)
                 is LoopStatement    -> genLoopStatement(stmnt)
                 else                -> throw InternalCompilerException("Unhandled statement")
@@ -129,15 +147,9 @@ class Generator(val m: Module)
         }
     }
 
-    private fun genAssignStatement(stmnt: AssignStatement)
-    {
-        output.append("${stmnt.name} =")
-        genExpr(stmnt.expr)
-    }
-
     private fun genDeclarationStatement(stmnt: DeclareStatement)
     {
-        val type = m.types[stmnt.variable.type.value]!!.cName
+        val type = m.types[stmnt.variable.type.alternatives.first()]!!.cName
 
         output.append("$type ${stmnt.variable.name}")
 

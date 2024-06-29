@@ -31,9 +31,3 @@ data class DeclareStatement(
     val expr: Expr?,
     override val pos: FilePos
 ): Statement(pos)
-
-data class AssignStatement(
-    val name: String,
-    val expr: Expr,
-    override val pos: FilePos
-): Statement(pos)

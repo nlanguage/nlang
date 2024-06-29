@@ -43,7 +43,7 @@ fun genArithType(name: String, cName: String): Pair<String, Type>
     return name to Type(
         name,
         cName,
-        genArithOps(name) + genCompOps(name) + genAssignOps(name),
+        genArithOps(name) + genFullCompOps(name) + genFullAssignOps(name),
         listOf()
     )
 }
@@ -53,7 +53,7 @@ fun genType(name: String, cName: String): Pair<String, Type>
     return name to Type(
         name,
         cName,
-        genCompOps(name)  + Operator("=", name, null, null),
+        genBaseCompOps(name)  + genBaseAssignOps(name),
         listOf()
     )
 }
@@ -68,11 +68,9 @@ fun genArithOps(type: String): List<Operator>
     )
 }
 
-fun genCompOps(type: String): List<Operator>
+fun genFullCompOps(type: String): List<Operator>
 {
-    return listOf(
-        Operator("==", type, "bool", null),
-        Operator("!=", type, "bool", null),
+    return genBaseCompOps(type) + listOf(
         Operator(">=", type, "bool", null),
         Operator("<=", type, "bool", null),
         Operator(">",  type, "bool", null),
@@ -80,13 +78,22 @@ fun genCompOps(type: String): List<Operator>
     )
 }
 
-fun genAssignOps(type: String): List<Operator>
+fun genBaseCompOps(type: String): List<Operator>
+{
+    return listOf(
+        Operator("==", type, "bool", null),
+        Operator("!=", type, "bool", null),
+    )
+}
+
+fun genFullAssignOps(type: String): List<Operator>
+{
+    return genBaseAssignOps(type) + listOf()
+}
+
+fun genBaseAssignOps(type: String): List<Operator>
 {
     return listOf(
         Operator("=",  type, null, null),
-        Operator("+=", type, null, null),
-        Operator("-=", type, null, null),
-        Operator("*=", type, null, null),
-        Operator("/=", type, null, null),
     )
 }

@@ -1,23 +1,17 @@
 import io
 import math
 
+class person
+(
+    val name: string
+    var age: int
+)
+
 fun main() -> i32
 {
-    val r: int = 4
-    print(r)
+    var a = 4
 
-    val greet = "Hello"
+    a += 2
 
-    when (greet == "Hello")
-    {
-        print("Hi there")
-        print_hello()
-        print(pow_two(4))
-    }
-    else
-    {
-        var x = true
-
-        print(x)
-    }
+    return a
 }

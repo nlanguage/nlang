@@ -1,5 +1,7 @@
 package ast
 
+import TypeId
+
 data class FilePos(
     val file: String,
     val line: Int,
@@ -8,7 +10,7 @@ data class FilePos(
 
 data class Variable(
     val name: String,
-    var type: TypeName,
+    var type: TypeId,
     val mutable: Boolean,
     val pos: FilePos
 )
@@ -33,8 +35,6 @@ data class Prototype(
     val returnType: String,
     var flags: List<Flag>,
 )
-
-data class TypeName(var value: String?)
 
 sealed class Argument(open val pos: FilePos)
 

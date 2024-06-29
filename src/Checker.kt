@@ -12,6 +12,25 @@ class Checker(val m: Module)
             {
                 checkFunction(node)
             }
+            else if (node is Class)
+            {
+                checkClass(node)
+            }
+        }
+    }
+
+    private fun checkClass(clas: Class)
+    {
+        val cName = "_Z${clas.name}"
+
+        m.types[clas.name] = Type(clas.name, cName, listOf(), listOf())
+
+        for (memb in clas.members)
+        {
+            if (m.types[memb.type.alternatives.first()] == null)
+            {
+                reportError("check", memb.pos, "Unknown type '${memb.type.alternatives.first()}'")
+            }
         }
     }
 
@@ -35,7 +54,6 @@ class Checker(val m: Module)
         {
             when (stmnt)
             {
-                is AssignStatement  -> checkAssignStatement(stmnt, scope)
                 is DeclareStatement -> checkDeclarationStatement(stmnt, scope)
                 is ReturnStatement  -> checkReturnStatement(stmnt, proto, scope)
                 is ExprStatement    -> checkExprStatement(stmnt, scope)
@@ -48,7 +66,7 @@ class Checker(val m: Module)
 
     private fun checkLoopStatement(stmnt: LoopStatement, proto: Prototype, scope: Scope)
     {
-        checkExpr(stmnt.expr, TypeName("bool"), scope)
+        checkExpr(stmnt.expr, TypeId("bool"), scope)
 
         checkBlock(stmnt.block, proto, scope)
     }
@@ -57,7 +75,7 @@ class Checker(val m: Module)
     {
         for (branch in stmnt.branches)
         {
-            checkExpr(branch.expr, TypeName("bool"), scope)
+            checkExpr(branch.expr, TypeId("bool"), scope)
 
             checkBlock(branch.block, proto, scope)
         }
@@ -68,19 +86,6 @@ class Checker(val m: Module)
         }
     }
 
-    private fun checkAssignStatement(stmnt: AssignStatement, scope: Scope)
-    {
-        val lhs = scope[stmnt.name] ?:
-            reportError("check", stmnt.expr.pos, "Variable '${stmnt.name}' not declared in this scope")
-
-        if (!lhs.mutable)
-        {
-            reportError("check", stmnt.expr.pos, "Variable '${stmnt.name}' is immutable")
-        }
-
-        val rhs = checkExpr(stmnt.expr, lhs.type, scope)
-    }
-
     private fun checkDeclarationStatement(stmnt: DeclareStatement, scope: Scope)
     {
         if (stmnt.expr != null)
@@ -89,7 +94,7 @@ class Checker(val m: Module)
         }
         else
         {
-            if (stmnt.variable.type.value == null)
+            if (stmnt.variable.type.alternatives.isEmpty())
             {
                 reportError("check", stmnt.pos, "Type required for variable '${stmnt.variable.name}'")
             }
@@ -100,18 +105,18 @@ class Checker(val m: Module)
 
     private fun checkExprStatement(stmnt: ExprStatement, scope: Scope)
     {
-        checkExpr(stmnt.expr, TypeName(null), scope)
+        checkExpr(stmnt.expr, TypeId(), scope)
     }
 
     private fun checkReturnStatement(stmnt: ReturnStatement, proto: Prototype, scope: Scope)
     {
-        if (checkExpr(stmnt.expr, TypeName(proto.returnType), scope) == false)
+        if (checkExpr(stmnt.expr, TypeId(proto.returnType), scope) == false)
         {
             reportError("check", stmnt.expr.pos, "Expected a return-type of '${proto.returnType}'")
         }
     }
 
-    private fun checkExpr(expr: Expr, type: TypeName, scope: Scope): Boolean
+    private fun checkExpr(expr: Expr, type: TypeId, scope: Scope): Boolean
     {
         return when (expr)
         {
@@ -119,31 +124,55 @@ class Checker(val m: Module)
             is VariableExpr -> checkVariableExpr(expr, type, scope)
             is CallExpr     -> checkCallExpr(expr, type, scope)
             is BinaryExpr   -> checkBinaryExpr(expr, type, scope)
-            is BooleanExpr  -> assignOrCheck(type, "bool")
-            is CharExpr     -> assignOrCheck(type, "char")
-            is StringExpr   -> assignOrCheck(type, "string")
+            is BooleanExpr  -> type.checkOrAssign(TypeId("bool"))
+            is CharExpr     -> type.checkOrAssign(TypeId("char"))
+            is StringExpr   -> type.checkOrAssign(TypeId("string"))
         }
     }
 
-    private fun checkBinaryExpr(expr: BinaryExpr, type: TypeName, scope: Scope): Boolean
+    private fun checkBinaryExpr(expr: BinaryExpr, type: TypeId, scope: Scope): Boolean
     {
-        val lhs = TypeName(null)
-        checkExpr(expr.left, lhs, scope)
+        val lhsAlts = TypeId()
+        checkExpr(expr.left, lhsAlts, scope)
 
-        val rhs = TypeName(null)
-        checkExpr(expr.right, rhs, scope)
+        val rhsAlts = TypeId()
+        checkExpr(expr.right, rhsAlts, scope)
 
-        val op = m.types[lhs.value]!!.ops.find { it.rhs == rhs.value }
+        val alternatives = mutableSetOf<String>()
 
-        if (op == null)
+        for (lhs in lhsAlts.alternatives)
         {
-            reportError("check", expr.pos, "Cannot perform '${expr.op}' on types '${lhs.value}' and '${rhs.value}'")
+            val lhsType = m.types[lhs] ?:
+                reportError("check", expr.pos, "Unknown type $type")
+
+            for (rhs in rhsAlts.alternatives)
+            {
+                val rhsType = m.types[lhs] ?:
+                    reportError("check", expr.pos, "Unknown type $type")
+
+                val op = lhsType.ops.find { it.name == expr.op && it.rhs == rhsType.name }
+
+                if (op == null)
+                {
+                    continue
+                }
+
+                if (op.func != null)
+                {
+                    TODO()
+                }
+
+                if (op.ret != null)
+                {
+                    alternatives += op.ret
+                }
+            }
         }
 
-        return assignOrCheck(type, op.ret!!)
+        return type.checkOrAssign(TypeId(alternatives))
     }
 
-    private fun checkCallExpr(expr: CallExpr, type: TypeName, scope: Scope): Boolean
+    private fun checkCallExpr(expr: CallExpr, type: TypeId, scope: Scope): Boolean
     {
         val type = type
 
@@ -169,7 +198,7 @@ class Checker(val m: Module)
                 expr.cCallee = proto.cName
 
                 // Reaching here means function name and params match
-                return assignOrCheck(type, proto.returnType)
+                return type.checkOrAssign(TypeId(proto.returnType))
             }
         }
 
@@ -182,101 +211,46 @@ class Checker(val m: Module)
         reportError("check", expr.pos, "No compatible function '${expr.callee}' found")
     }
 
-    private fun checkVariableExpr(expr: VariableExpr, type: TypeName, scope: Scope): Boolean
+    private fun checkVariableExpr(expr: VariableExpr, type: TypeId, scope: Scope): Boolean
     {
         val type = type
 
         val variable = scope[expr.name] ?:
             reportError("check", expr.pos, "Variable '${expr.name}' doesn't exist in the current scope")
 
-        return assignOrCheck(type, variable.type.value!!)
+        return type.checkOrAssign(variable.type)
     }
 
-    private fun assignOrCheck(type: TypeName, value: String): Boolean
-    {
-        if (type.value == null)
-        {
-            type.value = value
-            return true
-        }
-        else
-        {
-            return type.value == value
-        }
-    }
-
-    private fun checkNumericExpr(expr: NumberExpr, type: TypeName): Boolean
+    private fun checkNumericExpr(expr: NumberExpr, type: TypeId): Boolean
     {
         var type = type
 
-        if (type.value == null)
+        val intTypes = hashMapOf(
+            "u8"   to Pair(0.0, UByte.MAX_VALUE.toDouble()),
+            "u16"  to Pair(0.0, UShort.MAX_VALUE.toDouble()),
+            "u32"  to Pair(0.0, UInt.MAX_VALUE.toDouble()),
+            "u64"  to Pair(0.0, ULong.MAX_VALUE.toDouble()),
+            "uint" to Pair(0.0, ULong.MAX_VALUE.toDouble()),
+
+            "i8"  to Pair(Byte.MIN_VALUE.toDouble(), Byte.MAX_VALUE.toDouble()),
+            "i16" to Pair(Short.MIN_VALUE.toDouble(), Short.MAX_VALUE.toDouble()),
+            "i32" to Pair(Int.MIN_VALUE.toDouble(), Int.MAX_VALUE.toDouble()),
+            "i64" to Pair(Long.MIN_VALUE.toDouble(), Long.MAX_VALUE.toDouble()),
+            "int" to Pair(Long.MIN_VALUE.toDouble(), Long.MAX_VALUE.toDouble()),
+        )
+
+        val alternatives = mutableSetOf<String>()
+
+        for (intType in intTypes)
         {
-            type.value = "uint"
+            val number = expr.value.toDouble()
+
+            if (number >= intType.value.first && number <= intType.value.second)
+            {
+                alternatives += intType.key
+            }
         }
 
-        val maxValue: Double
-        val minValue: Double
-
-        when (type.value)
-        {
-            "u8" ->
-            {
-                maxValue = UByte.MAX_VALUE.toDouble()
-                minValue = 0.0
-            }
-
-            "u16" ->
-            {
-                maxValue = UShort.MAX_VALUE.toDouble()
-                minValue = 0.0
-            }
-
-            "u32" ->
-            {
-                maxValue = UInt.MAX_VALUE.toDouble()
-                minValue = 0.0
-            }
-
-            "uint",
-            "u64" ->
-            {
-                maxValue = ULong.MAX_VALUE.toDouble()
-                minValue = 0.0
-            }
-
-            "i8" ->
-            {
-                maxValue = Byte.MAX_VALUE.toDouble()
-                minValue = Byte.MIN_VALUE.toDouble()
-            }
-
-            "i16" ->
-            {
-                maxValue = Short.MAX_VALUE.toDouble()
-                minValue = Short.MIN_VALUE.toDouble()
-            }
-
-            "i32" ->
-            {
-                maxValue = Int.MAX_VALUE.toDouble()
-                minValue = Int.MIN_VALUE.toDouble()
-            }
-
-            "int",
-            "64" ->
-            {
-                maxValue = Long.MAX_VALUE.toDouble()
-                minValue = Long.MIN_VALUE.toDouble()
-            }
-
-            else -> throw InternalCompilerException("Unhandled number")
-        }
-
-        if (expr.value.toDouble() > maxValue || expr.value.toDouble() < minValue)
-        {
-            reportError("check", expr.pos, "Integer ${expr.value} cannot fit in a '${type.value}'")
-        }
-
-        return true
+        return type.checkOrAssign(TypeId(alternatives))
     }
 }

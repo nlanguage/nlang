@@ -81,7 +81,7 @@ class Parser(val m: Module)
                 )
             }
 
-            members += Variable(name, TypeName(type), mutable, pos)
+            members += Variable(name, TypeId(type), mutable, pos)
         }
 
         // Consume ')'
@@ -128,7 +128,7 @@ class Parser(val m: Module)
 
                 val type = m.lexer.eat()
 
-                args += Variable(name, TypeName(type), false, pos)
+                args += Variable(name, TypeId(type), false, pos)
 
                 if (m.lexer.current.text == ")") {
                     break;
@@ -191,14 +191,7 @@ class Parser(val m: Module)
                 {
                     if (m.lexer.current.type == TokenType.IDENTIFIER)
                     {
-                        if (m.lexer.lookahead.text in assignOps)
-                        {
-                            statements += parseAssignStatement()
-                        }
-                        else
-                        {
-                            statements += ExprStatement(parseExpr(), pos)
-                        }
+                        statements += ExprStatement(parseExpr(), pos)
                     }
                     else
                     {
@@ -279,28 +272,6 @@ class Parser(val m: Module)
         return Branch(expr, block)
     }
 
-    private fun parseAssignStatement(): Statement
-    {
-        val pos = m.lexer.current.pos
-        val name = m.lexer.eat()
-
-        if (m.lexer.current.text !in assignOps)
-        {
-            reportError(
-                "parse",
-                m.lexer.current.pos,
-                "Expected assignment operator, found '${m.lexer.current.text}'"
-            )
-        }
-
-        // Consume assign operator
-        m.lexer.eat()
-
-        val expr = parseExpr()
-
-        return AssignStatement(name, expr, pos)
-    }
-
     private fun parseDeclarationStatement(): Statement
     {
         val pos = m.lexer.current.pos
@@ -330,7 +301,16 @@ class Parser(val m: Module)
             expr = parseExpr()
         }
 
-        return DeclareStatement(Variable(name, TypeName(type), mutable, pos), expr, pos)
+        val typeId = if (type == null)
+        {
+            TypeId()
+        }
+        else
+        {
+            TypeId(type)
+        }
+
+        return DeclareStatement(Variable(name, typeId, mutable, pos), expr, pos)
     }
 
     private fun parseReturnStatement(): Statement
@@ -495,8 +475,6 @@ class Parser(val m: Module)
         return opPrecedence[m.lexer.current.text] ?: -1
     }
 
-    private val assignOps = setOf("=", "+=", "-=", "*=", "/=")
-
     private val opPrecedence = mapOf(
         "==" to 50,
         "!=" to 50,
@@ -508,5 +486,10 @@ class Parser(val m: Module)
         "/"  to 40,
         "-"  to 20,
         "+"  to 20,
+        "="  to 10,
+        "+=" to 10,
+        "-=" to 10,
+        "*=" to 10,
+        "/=" to 10,
     )
 }
