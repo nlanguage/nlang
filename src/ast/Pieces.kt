@@ -28,13 +28,29 @@ data class Flag(
     val value: String
 )
 
-data class Prototype(
+class Prototype(
     var name: String,
     var cName: String,
-    val args: List<Variable>,
+    val params: List<Variable>,
     val returnType: String,
     var flags: List<Flag>,
 )
+{
+    fun hasFlag(flag: String): Boolean
+    {
+        return flags.contains(Flag(flag))
+    }
+}
 
-sealed class Argument(open val pos: FilePos)
+sealed class Argument
+
+class NamedArgument(
+    val name: String,
+    val expr: Expr,
+): Argument()
+
+class AnonArgument(
+    val expr: Expr,
+): Argument()
+
 

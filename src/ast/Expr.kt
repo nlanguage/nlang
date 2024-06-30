@@ -30,7 +30,7 @@ data class CharExpr(
 data class CallExpr(
     var callee: String,
     var cCallee: String,
-    val args: List<Expr>,
+    var args: List<Argument>,
     override val pos: FilePos
 ): Expr(pos)
 

@@ -1,17 +1,26 @@
 import io
-import math
 
-class person
-(
-    val name: string
-    var age: int
-)
+fun show_message(critical: bool, msg: string)
+{
+    when (critical)
+    {
+        print("CRITICAL: ")
+    }
+
+    print(msg)
+    print("\n")
+}
+
+fun add_nums(x: u32, y: u32, z: u32) -> u32 @anon
+{
+    return x + y + z
+}
 
 fun main() -> i32
 {
-    var a = 4
+    val c = add_nums(4, 3, 2)
 
-    a += 2
+    show_message(critical = true, msg = "No beans found")
 
-    return a
+    return 4
 }

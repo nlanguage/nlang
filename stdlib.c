@@ -3,27 +3,27 @@
 
 void print_i(int integer)
 {
-    printf("%d\n", integer);
+    printf("%d", integer);
 }
 
 void print_c(char character)
 {
-    printf("%c\n", character);
+    printf("%c", character);
 }
 
 void print_b(bool boolean)
 {
     if (boolean)
     {
-        printf("true\n");
+        printf("true");
     }
     else
     {
-        printf("false\n");
+        printf("false");
     }
 }
 
 void print_s(char* string)
 {
-    printf("%s\n", string);
+    printf("%s", string);
 }

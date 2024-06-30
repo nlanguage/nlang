@@ -18,13 +18,22 @@ class TypeId
     {
         if (this.alternatives.isNotEmpty())
         {
-            this.alternatives = this.alternatives.intersect(other.alternatives)
+            val newAlts = this.alternatives.intersect(other.alternatives)
+
+            if (newAlts.isNotEmpty())
+            {
+                this.alternatives = newAlts
+                return true
+            }
+            else
+            {
+                return false
+            }
         }
         else
         {
             this.alternatives = other.alternatives
+            return true
         }
-
-        return this.alternatives.isNotEmpty()
     }
 }

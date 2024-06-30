@@ -83,7 +83,7 @@ class Generator(val m: Module)
         val returnType = m.types[proto.returnType]!!.cName
 
         output.append("$returnType ${proto.cName}(")
-        output.append(proto.args.joinToString(", ")
+        output.append(proto.params.joinToString(", ")
         {
             val type = m.types[it.type.alternatives.first()]!!.cName
 
@@ -201,7 +201,7 @@ class Generator(val m: Module)
 
         for (arg in expr.args)
         {
-            genExpr(arg)
+            genExpr((arg as AnonArgument).expr)
 
             if (arg !== expr.args.last())
                 output.append(",")

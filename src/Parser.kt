@@ -446,12 +446,24 @@ class Parser(val m: Module)
         // Consume '('
         m.lexer.eat()
 
-        val args = mutableListOf<Expr>()
+        val args = mutableListOf<Argument>()
         if (m.lexer.current.text != ")")
         {
+
             while (true)
             {
-                args += parseExpr()
+                // This is quite bad, but what we are doing is parsing each argument like an expression, and if it
+                // is an assign expression, then we treat it as a named arg, otherwise it is an anonymous argument
+                val arg = parseExpr()
+
+                if (arg is BinaryExpr && arg.op == "=")
+                {
+                    args += NamedArgument((arg.left as VariableExpr).name, arg.right)
+                }
+                else
+                {
+                    args += AnonArgument(arg)
+                }
 
                 if (m.lexer.current.text == ")")
                 {

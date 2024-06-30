@@ -45,15 +45,16 @@ class Module(val file: File)
 
                 for (impSym in imported.funcs)
                 {
-                    if (impSym.flags.contains(Flag("export")))
+                    if (impSym.hasFlag("export"))
                     {
                         // Do not import the import's imports
-                        if (impSym.flags.contains(Flag("imported")))
+                        if (impSym.hasFlag("imported"))
                         {
                             continue
                         }
 
-                        val externProto = impSym.copy()
+                        // TODO: Check that not having .copy() isn't an issue
+                        val externProto = impSym
 
                         externProto.flags += Flag("imported")
 
@@ -96,7 +97,7 @@ class Module(val file: File)
             def.proto.cName = buildString {
                 append("_Z${def.proto.name}")
 
-                for (arg in def.proto.args)
+                for (arg in def.proto.params)
                 {
                     append("_${arg.type.alternatives.first()}")
                 }

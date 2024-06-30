@@ -1,26 +1,19 @@
-import math
+fun print_i(i: int) @extern @anon
+fun print_c(c: char) @extern @anon
+fun print_b(b: bool) @extern @anon
+fun print_s(s: string) @extern @anon
 
-fun print_i(a: int) @extern
-fun print_c(a: char) @extern
-fun print_b(a: bool) @extern
-fun print_s(a: string) @extern
-
-fun print(x: int) @export
+fun print(x: int) @export @anon
 {
     print_i(x)
 }
 
-fun print(x: string) @export
+fun print(x: string) @export @anon
 {
     print_s(x)
 }
 
-fun print(x: bool) @export
+fun print(x: bool) @export @anon
 {
     print_b(x)
-}
-
-fun print_hello() @export
-{
-    print(pow_two(4))
 }

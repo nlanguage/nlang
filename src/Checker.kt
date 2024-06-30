@@ -38,7 +38,7 @@ class Checker(val m: Module)
     {
         val scope = Scope()
 
-        for (arg in func.def.proto.args)
+        for (arg in func.def.proto.params)
         {
             scope[arg.name] = arg
         }
@@ -181,18 +181,59 @@ class Checker(val m: Module)
             // Find a function matching the name
             if (proto.name == expr.callee)
             {
-                // Check each arg
-                for (i in 0..<expr.args.size)
+                if (proto.hasFlag("anon"))
                 {
-                    val protoArg = proto.args.getOrNull(i) ?: continue@findFunc
-
-                    val matched = checkExpr(expr.args[i], protoArg.type, scope)
-
-                    // Reached an arg that doesn't match, try with next function
-                    if (!matched)
+                    // Check each arg
+                    for (i in 0..<expr.args.size)
                     {
-                        continue@findFunc
+                        if (expr.args[i] !is AnonArgument)
+                        {
+                            reportError("check", expr.pos, "Expected anonymous parameter, found named instead")
+                        }
+
+                        val param = proto.params.getOrNull(i) ?: continue@findFunc
+
+                        val arg = (expr.args[i] as AnonArgument).expr
+
+                        val matched  = checkExpr(arg, param.type, scope)
+
+                        // Reached an arg that doesn't match, try with next function
+                        if (!matched)
+                        {
+                            continue@findFunc
+                        }
                     }
+                }
+                else
+                {
+                    for (arg in expr.args)
+                    {
+                        if (arg !is NamedArgument)
+                        {
+                            reportError("check", expr.pos, "Expected named parameter, found anonymous instead")
+                        }
+
+                        val protoArg = proto.params.find {it.name == arg.name}
+
+                        val matched = protoArg != null && checkExpr(arg.expr, protoArg.type, scope)
+
+                        if (!matched)
+                        {
+                            continue@findFunc
+                        }
+                    }
+
+                    // Convert the named call to a positional one
+                    val args = mutableListOf<AnonArgument>()
+
+                    for (arg in proto.params)
+                    {
+                        val calleeArg = expr.args.find { it is NamedArgument && it.name == arg.name } as NamedArgument
+
+                        args += AnonArgument(calleeArg.expr)
+                    }
+
+                    expr.args = args
                 }
 
                 expr.cCallee = proto.cName
@@ -203,11 +244,6 @@ class Checker(val m: Module)
         }
 
         // No Matching function found
-        for (func in m.funcs)
-        {
-            println("$func")
-        }
-
         reportError("check", expr.pos, "No compatible function '${expr.callee}' found")
     }
 
