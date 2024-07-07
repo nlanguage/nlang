@@ -14,7 +14,7 @@ data class FunctionDecl(
 
 data class Class(
     val name: String,
-    val members: Set<Variable>,
+    val members: HashMap<String, VarData>,
     override val pos: FilePos
 ): Node(pos)
 

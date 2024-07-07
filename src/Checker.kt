@@ -1,6 +1,6 @@
 import ast.*
 
-typealias Scope = HashMap<String, Variable>
+data class Scope(var vars: HashMap<String, VarData>, val funcs: MutableList<Prototype>)
 
 class Checker(val m: Module)
 {
@@ -23,24 +23,24 @@ class Checker(val m: Module)
     {
         val cName = "_Z${clas.name}"
 
-        m.types[clas.name] = Type(clas.name, cName, listOf(), listOf())
+        m.types[clas.name] = Type(clas.name, cName, listOf(), mutableListOf(), clas.members)
 
         for (memb in clas.members)
         {
-            if (m.types[memb.type.alternatives.first()] == null)
+            if (m.types[memb.value.type] == null)
             {
-                reportError("check", memb.pos, "Unknown type '${memb.type.alternatives.first()}'")
+                reportError("check", memb.value.pos, "Unknown type '${memb.value.type}'")
             }
         }
     }
 
     private fun checkFunction(func: FunctionDecl)
     {
-        val scope = Scope()
+        val scope = Scope(hashMapOf(), m.funcs)
 
         for (arg in func.def.proto.params)
         {
-            scope[arg.name] = arg
+            scope.vars[arg.key] = VarData(arg.value, false, null, false, func.pos)
         }
 
         checkBlock(func.body, func.def.proto, scope)
@@ -48,7 +48,7 @@ class Checker(val m: Module)
 
     private fun checkBlock(block: Block, proto: Prototype, parentScope: Scope)
     {
-        val scope = Scope(parentScope)
+        val scope = Scope(parentScope.vars, parentScope.funcs)
 
         for (stmnt in block.statements)
         {
@@ -66,7 +66,7 @@ class Checker(val m: Module)
 
     private fun checkLoopStatement(stmnt: LoopStatement, proto: Prototype, scope: Scope)
     {
-        checkExpr(stmnt.expr, TypeId("bool"), scope)
+        checkExpr(stmnt.expr, "bool", scope).onFailure { reportError(it as CompileError) }
 
         checkBlock(stmnt.block, proto, scope)
     }
@@ -75,7 +75,7 @@ class Checker(val m: Module)
     {
         for (branch in stmnt.branches)
         {
-            checkExpr(branch.expr, TypeId("bool"), scope)
+            checkExpr(branch.expr, "bool", scope).onFailure { reportError(it as CompileError) }
 
             checkBlock(branch.block, proto, scope)
         }
@@ -88,117 +88,176 @@ class Checker(val m: Module)
 
     private fun checkDeclarationStatement(stmnt: DeclareStatement, scope: Scope)
     {
+        // If type is inferred, inferable=true, otherwise normal
         if (stmnt.expr != null)
         {
-            checkExpr(stmnt.expr, stmnt.variable.type, scope)
+            val rhs = checkExpr(stmnt.expr, stmnt.type, scope).getOrElse { reportError(it as CompileError) }
+
+            if (stmnt.type == null)
+            {
+                scope.vars[stmnt.name] = VarData(rhs, stmnt.mutable, stmnt.expr, true, stmnt.pos)
+                stmnt.type = rhs
+            }
+            else
+            {
+                if (m.types[stmnt.type] == null)
+                {
+                    reportError("check", stmnt.pos, "Unknown type '${stmnt.type}'")
+                }
+
+                if (rhs != stmnt.type)
+                {
+                    reportError("check", stmnt.pos, "Declaration is of '${stmnt.type}', but found '$rhs'")
+                }
+
+                scope.vars[stmnt.name] = VarData(rhs, stmnt.mutable, stmnt.expr, false, stmnt.pos)
+            }
         }
         else
         {
-            if (stmnt.variable.type.alternatives.isEmpty())
+            if (stmnt.type == null)
             {
-                reportError("check", stmnt.pos, "Type required for variable '${stmnt.variable.name}'")
+                reportError("check", stmnt.pos, "Cannot infer type for '${stmnt.name}'")
             }
-        }
 
-        scope[stmnt.variable.name] = stmnt.variable
+            if (m.types[stmnt.type] == null)
+            {
+                reportError("check", stmnt.pos, "Unknown type '${stmnt.type}'")
+            }
+
+            scope.vars[stmnt.name] = VarData(stmnt.type!!, stmnt.mutable, null, false, stmnt.pos)
+        }
     }
 
     private fun checkExprStatement(stmnt: ExprStatement, scope: Scope)
     {
-        checkExpr(stmnt.expr, TypeId(), scope)
+        checkExpr(stmnt.expr, null, scope).onFailure { reportError(it as CompileError) }
     }
 
     private fun checkReturnStatement(stmnt: ReturnStatement, proto: Prototype, scope: Scope)
     {
-        if (checkExpr(stmnt.expr, TypeId(proto.returnType), scope) == false)
-        {
-            reportError("check", stmnt.expr.pos, "Expected a return-type of '${proto.returnType}'")
-        }
+        checkExpr(stmnt.expr, proto.ret, scope).onFailure { reportError(it as CompileError) }
     }
 
-    private fun checkExpr(expr: Expr, type: TypeId, scope: Scope): Boolean
+    private fun checkExpr(expr: Expr, hint: String?, localScope: Scope, typeScope: Scope? = null): Result<String>
     {
+        // 'typeScope' is the scope created by a type after a member access.
+        // E.g. 'type' '.' <scope is now type's members and functions
+        val scope = typeScope ?: localScope
+
         return when (expr)
         {
-            is NumberExpr   -> checkNumericExpr(expr, type)
-            is VariableExpr -> checkVariableExpr(expr, type, scope)
-            is CallExpr     -> checkCallExpr(expr, type, scope)
-            is BinaryExpr   -> checkBinaryExpr(expr, type, scope)
-            is BooleanExpr  -> type.checkOrAssign(TypeId("bool"))
-            is CharExpr     -> type.checkOrAssign(TypeId("char"))
-            is StringExpr   -> type.checkOrAssign(TypeId("string"))
+            is VariableExpr -> checkVariableExpr(expr, hint, scope)
+
+            is NumberExpr  -> checkNumberExpr(expr, hint)
+            is BooleanExpr -> checkType("bool", hint, expr.pos, "Expected '$hint', found boolean expression")
+            is StringExpr  -> checkType("string", hint, expr.pos, "Expected '$hint', found string literal")
+            is CharExpr    -> checkType("char", hint, expr.pos, "Expected '$hint', found character literal")
+
+            is CallExpr ->
+            {
+                val result = checkCallExpr(expr, hint, scope, localScope)
+
+                checkNotVoid(result, expr.pos)
+
+                result
+            }
+
+            is BinaryExpr ->
+            {
+                val result = checkBinaryExpr(expr, hint, scope)
+
+                checkNotVoid(result, expr.pos)
+
+                result
+            }
+
+            else -> throw InternalCompilerException("Unhandled expression")
         }
     }
 
-    private fun checkBinaryExpr(expr: BinaryExpr, type: TypeId, scope: Scope): Boolean
+    private fun checkNotVoid(result: Result<String>, pos: FilePos): Result<String>
     {
-        val lhsAlts = TypeId()
-        checkExpr(expr.left, lhsAlts, scope)
+        val type = result.getOrNull()
 
-        val rhsAlts = TypeId()
-        checkExpr(expr.right, rhsAlts, scope)
-
-        val alternatives = mutableSetOf<String>()
-
-        for (lhs in lhsAlts.alternatives)
+        if (type != null && type == "void")
         {
-            val lhsType = m.types[lhs] ?:
-                reportError("check", expr.pos, "Unknown type $type")
+            return Result.failure(CompileError("check", pos, "Expression has no type"))
+        }
 
-            for (rhs in rhsAlts.alternatives)
+        return result
+    }
+
+    private fun checkBinaryExpr(expr: BinaryExpr, hint: String?, scope: Scope): Result<String>
+    {
+        val lhs = if (expr.op == ".")
+        {
+            checkExpr(expr.left, null, scope).getOrElse { return Result.failure(it) }
+        }
+        else
+        {
+            checkExpr(expr.left, hint, scope).getOrElse { return Result.failure(it) }
+        }
+
+        // Type should always exist
+        val type = m.types[lhs]!!
+
+        if (expr.op == ".")
+        {
+            return checkExpr(expr.right, null, scope, Scope(type.membs, type.funcs))
+        }
+
+        // Check mutability
+        if (expr.op in setOf("=", "+=", "-=", "*=", "/="))
+        {
+            //TODO()
+        }
+
+        val ops = type.ops.filter {it.name == expr.op}
+
+        for (op in ops)
+        {
+            if (checkExpr(expr.right, op.rhs, scope).isSuccess)
             {
-                val rhsType = m.types[lhs] ?:
-                    reportError("check", expr.pos, "Unknown type $type")
+                val ret = op.ret ?: "void"
 
-                val op = lhsType.ops.find { it.name == expr.op && it.rhs == rhsType.name }
-
-                if (op == null)
-                {
-                    continue
-                }
-
-                if (op.func != null)
-                {
-                    TODO()
-                }
-
-                if (op.ret != null)
-                {
-                    alternatives += op.ret
-                }
+                return checkType(ret, hint, expr.pos, "expected '$hint' but binary expression is of type '$ret'")
             }
         }
 
-        return type.checkOrAssign(TypeId(alternatives))
+        val rhs = checkExpr(expr.right, null, scope).getOrNull() ?: throw InternalCompilerException("RHS eval failed")
+
+        return Result.failure(
+            CompileError("check", expr.pos, "Cannot perform operand '${expr.op}' on '$lhs' and '$rhs'")
+        )
     }
 
-    private fun checkCallExpr(expr: CallExpr, type: TypeId, scope: Scope): Boolean
+    private fun checkCallExpr(expr: CallExpr, hint: String?, scope: Scope, localScope: Scope): Result<String>
     {
-        val type = type
-
-        findFunc@ for (proto in m.funcs)
+        findFunc@ for (proto in scope.funcs)
         {
-            // Find a function matching the name
+            // Find a function with a matching name
             if (proto.name == expr.callee)
             {
+                // Anon functions have positional arguments
                 if (proto.hasFlag("anon"))
                 {
                     // Check each arg
-                    for (i in 0..<expr.args.size)
+                    for (i in 0 ..<expr.args.size)
                     {
                         if (expr.args[i] !is AnonArgument)
                         {
-                            reportError("check", expr.pos, "Expected anonymous parameter, found named instead")
+                            return Result.failure(
+                                CompileError("check", expr.pos, "Expected anonymous parameter, found named instead")
+                            )
                         }
 
-                        val param = proto.params.getOrNull(i) ?: continue@findFunc
+                        val param = proto.params.toList().getOrNull(i) ?: continue@findFunc
 
                         val arg = (expr.args[i] as AnonArgument).expr
 
-                        val matched  = checkExpr(arg, param.type, scope)
-
                         // Reached an arg that doesn't match, try with next function
-                        if (!matched)
+                        if (checkExpr(arg, param.second, localScope, null).isFailure)
                         {
                             continue@findFunc
                         }
@@ -210,14 +269,16 @@ class Checker(val m: Module)
                     {
                         if (arg !is NamedArgument)
                         {
-                            reportError("check", expr.pos, "Expected named parameter, found anonymous instead")
+                            return Result.failure(
+                                CompileError("check", expr.pos, "Expected named parameter, found anonymous instead")
+                            )
                         }
 
-                        val protoArg = proto.params.find {it.name == arg.name}
+                        val paramType = proto.params[arg.name] ?: return Result.failure(
+                            CompileError("check", expr.pos, "Expected named parameter, found anonymous instead")
+                        )
 
-                        val matched = protoArg != null && checkExpr(arg.expr, protoArg.type, scope)
-
-                        if (!matched)
+                        if (checkExpr(arg.expr, paramType, localScope).isFailure)
                         {
                             continue@findFunc
                         }
@@ -228,7 +289,7 @@ class Checker(val m: Module)
 
                     for (arg in proto.params)
                     {
-                        val calleeArg = expr.args.find { it is NamedArgument && it.name == arg.name } as NamedArgument
+                        val calleeArg = expr.args.find { it is NamedArgument && it.name == arg.key } as NamedArgument
 
                         args += AnonArgument(calleeArg.expr)
                     }
@@ -239,54 +300,126 @@ class Checker(val m: Module)
                 expr.cCallee = proto.cName
 
                 // Reaching here means function name and params match
-                return type.checkOrAssign(TypeId(proto.returnType))
+                return checkType(proto.ret, hint, expr.pos, "Expected '$hint', but function returns '${proto.ret}'")
             }
         }
 
         // No Matching function found
-        reportError("check", expr.pos, "No compatible function '${expr.callee}' found")
+        return Result.failure(CompileError("check", expr.pos, "No compatible function '${expr.callee}()' found"))
     }
 
-    private fun checkVariableExpr(expr: VariableExpr, type: TypeId, scope: Scope): Boolean
+
+    private fun checkVariableExpr(expr: VariableExpr, hint: String?, scope: Scope): Result<String>
     {
-        val type = type
+        val varData = scope.vars[expr.name] ?:
+            return Result.failure(CompileError("check", expr.pos, "Unknown variable '${expr.name}'"))
 
-        val variable = scope[expr.name] ?:
-            reportError("check", expr.pos, "Variable '${expr.name}' doesn't exist in the current scope")
-
-        return type.checkOrAssign(variable.type)
-    }
-
-    private fun checkNumericExpr(expr: NumberExpr, type: TypeId): Boolean
-    {
-        var type = type
-
-        val intTypes = hashMapOf(
-            "u8"   to Pair(0.0, UByte.MAX_VALUE.toDouble()),
-            "u16"  to Pair(0.0, UShort.MAX_VALUE.toDouble()),
-            "u32"  to Pair(0.0, UInt.MAX_VALUE.toDouble()),
-            "u64"  to Pair(0.0, ULong.MAX_VALUE.toDouble()),
-            "uint" to Pair(0.0, ULong.MAX_VALUE.toDouble()),
-
-            "i8"  to Pair(Byte.MIN_VALUE.toDouble(), Byte.MAX_VALUE.toDouble()),
-            "i16" to Pair(Short.MIN_VALUE.toDouble(), Short.MAX_VALUE.toDouble()),
-            "i32" to Pair(Int.MIN_VALUE.toDouble(), Int.MAX_VALUE.toDouble()),
-            "i64" to Pair(Long.MIN_VALUE.toDouble(), Long.MAX_VALUE.toDouble()),
-            "int" to Pair(Long.MIN_VALUE.toDouble(), Long.MAX_VALUE.toDouble()),
-        )
-
-        val alternatives = mutableSetOf<String>()
-
-        for (intType in intTypes)
+        if (hint == null)
         {
-            val number = expr.value.toDouble()
+            return Result.success(varData.type)
+        }
 
-            if (number >= intType.value.first && number <= intType.value.second)
+        if (varData.type != hint)
+        {
+            if (varData.inferable)
             {
-                alternatives += intType.key
+                val ret = checkExpr(varData.expr!!, hint, scope)
+                varData.inferable = false
+                return ret
+            }
+            else
+            {
+                return Result.failure(CompileError("check", expr.pos, "Expected '$hint', found '${varData.type}'"))
             }
         }
 
-        return type.checkOrAssign(TypeId(alternatives))
+        return Result.success(varData.type)
     }
+
+    private fun checkNumberExpr(expr: NumberExpr, hint: String?): Result<String>
+    {
+        // Default integer type is uint
+        val type = hint ?: "uint"
+
+        val maxValue: Double
+        val minValue: Double
+
+        when (type)
+        {
+            "u8" ->
+            {
+                maxValue = UByte.MAX_VALUE.toDouble()
+                minValue = 0.0
+            }
+
+            "u16" ->
+            {
+                maxValue = UShort.MAX_VALUE.toDouble()
+                minValue = 0.0
+            }
+
+            "u32" ->
+            {
+                maxValue = UInt.MAX_VALUE.toDouble()
+                minValue = 0.0
+            }
+
+            "uint",
+            "u64" ->
+            {
+                maxValue = ULong.MAX_VALUE.toDouble()
+                minValue = 0.0
+            }
+
+            "i8" ->
+            {
+                maxValue = Byte.MAX_VALUE.toDouble()
+                minValue = Byte.MIN_VALUE.toDouble()
+            }
+
+            "i16" ->
+            {
+                maxValue = Short.MAX_VALUE.toDouble()
+                minValue = Short.MIN_VALUE.toDouble()
+            }
+
+            "i32" ->
+            {
+                maxValue = Int.MAX_VALUE.toDouble()
+                minValue = Int.MIN_VALUE.toDouble()
+            }
+
+            "int",
+            "i64" ->
+            {
+                maxValue = Long.MAX_VALUE.toDouble()
+                minValue = Long.MIN_VALUE.toDouble()
+            }
+
+            else -> throw InternalCompilerException("Unhandled numeric type")
+        }
+
+        if (expr.value.toDouble() > maxValue || expr.value.toDouble() < minValue)
+        {
+            return Result.failure(CompileError("check", expr.pos, "Integer literal '${expr.value}' cannot fit in '$type'"))
+        }
+
+        return Result.success(type)
+    }
+
+}
+
+private fun checkType(type: String, hint: String?, pos: FilePos, msg: String): Result<String>
+{
+    if (hint == null)
+    {
+        return Result.success(type)
+    }
+
+    if (hint != type)
+    {
+        return Result.failure(CompileError("check", pos, msg))
+    }
+
+    return Result.success(type)
 }

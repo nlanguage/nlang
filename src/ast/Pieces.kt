@@ -1,19 +1,12 @@
 package ast
 
-import TypeId
-
 data class FilePos(
     val file: String,
     val line: Int,
     val column: Int
 )
 
-data class Variable(
-    val name: String,
-    var type: TypeId,
-    val mutable: Boolean,
-    val pos: FilePos
-)
+data class VarData(val type: String, val mutable: Boolean, val expr: Expr?, var inferable: Boolean, var pos: FilePos)
 
 data class Block(
     val statements: List<Statement>
@@ -31,9 +24,9 @@ data class Flag(
 class Prototype(
     var name: String,
     var cName: String,
-    val params: List<Variable>,
-    val returnType: String,
-    var flags: List<Flag>,
+    val params: HashMap<String, String>,
+    val ret: String,
+    var flags: List<Flag>
 )
 {
     fun hasFlag(flag: String): Boolean
@@ -46,11 +39,10 @@ sealed class Argument
 
 class NamedArgument(
     val name: String,
-    val expr: Expr,
+    val expr: Expr
 ): Argument()
 
 class AnonArgument(
-    val expr: Expr,
+    val expr: Expr
 ): Argument()
-
 

@@ -1,4 +1,0 @@
-fun pow_two(x: int) -> int @export
-{
-    return x * x
-}

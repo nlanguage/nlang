@@ -1,26 +1,29 @@
 import io
 
-fun show_message(critical: bool, msg: string)
-{
-    when (critical)
-    {
-        print("CRITICAL: ")
-    }
+class identifier
+(
+    val name: string
+    val phone: i32
+)
 
-    print(msg)
-    print("\n")
-}
-
-fun add_nums(x: u32, y: u32, z: u32) -> u32 @anon
-{
-    return x + y + z
-}
+class person
+(
+    val ident: identifier
+    var age: i32
+)
 
 fun main() -> i32
 {
-    val c = add_nums(4, 3, 2)
+    val p: person
 
-    show_message(critical = true, msg = "No beans found")
+    p.age = 74
 
-    return 4
+    p.ident.phone = 4
+
+    when (p.age >= 65)
+    {
+        print("you can retire!\n")
+    }
+
+    return p.ident.phone
 }

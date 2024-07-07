@@ -52,9 +52,9 @@ class Generator(val m: Module)
 
         for (memb in clas.members)
         {
-            val type = m.types[memb.type.alternatives.first()]!!
+            val type = m.types[memb.value.type]!!
 
-            output.append("${type.cName} ${memb.name};\n")
+            output.append("${type.cName} ${memb.key};\n")
         }
 
         output.append("} ${classType.cName};\n")
@@ -80,14 +80,14 @@ class Generator(val m: Module)
 
     private fun genPrototype(proto: Prototype)
     {
-        val returnType = m.types[proto.returnType]!!.cName
+        val returnType = m.types[proto.ret]!!.cName
 
         output.append("$returnType ${proto.cName}(")
-        output.append(proto.params.joinToString(", ")
+        output.append(proto.params.toList().joinToString(", ")
         {
-            val type = m.types[it.type.alternatives.first()]!!.cName
+            val type = m.types[it.second]!!.cName
 
-            "$type ${it.name}"
+            "$type ${it.first}"
         })
         output.append(")")
     }
@@ -149,9 +149,9 @@ class Generator(val m: Module)
 
     private fun genDeclarationStatement(stmnt: DeclareStatement)
     {
-        val type = m.types[stmnt.variable.type.alternatives.first()]!!.cName
+        val type = m.types[stmnt.type]!!.cName
 
-        output.append("$type ${stmnt.variable.name}")
+        output.append("$type ${stmnt.name}")
 
         if (stmnt.expr != null)
         {

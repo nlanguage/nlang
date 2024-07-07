@@ -14,12 +14,10 @@ data class WhenStatement(
     override val pos: FilePos
 ): Statement(pos)
 
-
 data class ReturnStatement(
     val expr: Expr,
     override val pos: FilePos
 ): Statement(pos)
-
 
 data class ExprStatement(
     val expr: Expr,
@@ -27,7 +25,9 @@ data class ExprStatement(
 ): Statement(pos)
 
 data class DeclareStatement(
-    val variable: Variable,
+    val name: String,
+    var type: String?,
+    val mutable: Boolean,
     val expr: Expr?,
     override val pos: FilePos
 ): Statement(pos)

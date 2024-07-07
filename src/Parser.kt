@@ -47,7 +47,7 @@ class Parser(val m: Module)
 
         m.lexer.eatOnMatch("(")
 
-        val members = mutableSetOf<Variable>()
+        val members = hashMapOf<String, VarData>()
         while (m.lexer.current.text != ")")
         {
             val pos = m.lexer.current.pos
@@ -72,7 +72,7 @@ class Parser(val m: Module)
 
             val type = m.lexer.eat()
 
-            if (members.find { it.name == name } != null)
+            if (members[name] != null)
             {
                 reportError(
                     "parse",
@@ -81,7 +81,7 @@ class Parser(val m: Module)
                 )
             }
 
-            members += Variable(name, TypeId(type), mutable, pos)
+            members[name] = VarData(type, mutable, null, false, pos)
         }
 
         // Consume ')'
@@ -115,20 +115,18 @@ class Parser(val m: Module)
 
         m.lexer.eatOnMatch("(")
 
-        val args = mutableListOf<Variable>()
+        val args = hashMapOf<String, String>()
         if (m.lexer.current.text != ")")
         {
             while (true)
             {
-                val pos = m.lexer.current.pos
-
                 val name = m.lexer.eat()
 
                 m.lexer.eatOnMatch(":")
 
                 val type = m.lexer.eat()
 
-                args += Variable(name, TypeId(type), false, pos)
+                args[name] = type
 
                 if (m.lexer.current.text == ")") {
                     break;
@@ -301,16 +299,7 @@ class Parser(val m: Module)
             expr = parseExpr()
         }
 
-        val typeId = if (type == null)
-        {
-            TypeId()
-        }
-        else
-        {
-            TypeId(type)
-        }
-
-        return DeclareStatement(Variable(name, typeId, mutable, pos), expr, pos)
+        return DeclareStatement(name, type, mutable, expr, pos)
     }
 
     private fun parseReturnStatement(): Statement
@@ -487,21 +476,23 @@ class Parser(val m: Module)
         return opPrecedence[m.lexer.current.text] ?: -1
     }
 
-    private val opPrecedence = mapOf(
-        "==" to 50,
-        "!=" to 50,
-        ">"  to 50,
-        "<"  to 50,
-        ">=" to 50,
-        "<=" to 50,
-        "*"  to 40,
-        "/"  to 40,
-        "-"  to 20,
-        "+"  to 20,
-        "="  to 10,
-        "+=" to 10,
-        "-=" to 10,
-        "*=" to 10,
-        "/=" to 10,
-    )
 }
+
+private val opPrecedence = mapOf(
+    "."  to 50,
+    "*"  to 40,
+    "/"  to 40,
+    "-"  to 30,
+    "+"  to 30,
+    "==" to 20,
+    "!=" to 20,
+    ">"  to 20,
+    "<"  to 20,
+    ">=" to 20,
+    "<=" to 20,
+    "="  to 10,
+    "+=" to 10,
+    "-=" to 10,
+    "*=" to 10,
+    "/=" to 10,
+)

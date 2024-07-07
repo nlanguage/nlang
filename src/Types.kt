@@ -1,4 +1,6 @@
+import ast.Expr
 import ast.Prototype
+import ast.VarData
 
 data class Operator(
     val name: String,
@@ -11,7 +13,8 @@ data class Type(
     val name: String,
     val cName: String,
     val ops: List<Operator>,
-    val funcs: List<Prototype>
+    val funcs: MutableList<Prototype>,
+    val membs: HashMap<String, VarData>
 )
 
 typealias TypeTable = HashMap<String, Type>
@@ -33,7 +36,7 @@ val builtinTypes = hashMapOf(
     genType("char", "char"),
     genType("string", "char*"),
 
-    "void" to Type("void", "void", listOf(), listOf())
+    "void" to Type("void", "void", listOf(), mutableListOf(), hashMapOf())
 )
 
 // Helper methods to reduce the code-size of the builtin type table
@@ -44,7 +47,8 @@ fun genArithType(name: String, cName: String): Pair<String, Type>
         name,
         cName,
         genArithOps(name) + genFullCompOps(name) + genFullAssignOps(name),
-        listOf()
+        mutableListOf(),
+        hashMapOf()
     )
 }
 
@@ -54,7 +58,8 @@ fun genType(name: String, cName: String): Pair<String, Type>
         name,
         cName,
         genBaseCompOps(name)  + genBaseAssignOps(name),
-        listOf()
+        mutableListOf(),
+        hashMapOf()
     )
 }
 
@@ -88,7 +93,12 @@ fun genBaseCompOps(type: String): List<Operator>
 
 fun genFullAssignOps(type: String): List<Operator>
 {
-    return genBaseAssignOps(type) + listOf()
+    return genBaseAssignOps(type) + listOf(
+        Operator("+=", type, null, null),
+        Operator("-=", type, null, null),
+        Operator("*=", type, null, null),
+        Operator("/=", type, null, null),
+    )
 }
 
 fun genBaseAssignOps(type: String): List<Operator>

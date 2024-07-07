@@ -99,7 +99,7 @@ class Module(val file: File)
 
                 for (arg in def.proto.params)
                 {
-                    append("_${arg.type.alternatives.first()}")
+                    append("_${arg.value}")
                 }
             }
         }

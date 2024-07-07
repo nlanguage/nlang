@@ -2,11 +2,6 @@ package ast
 
 sealed class Expr(open val pos: FilePos)
 
-data class VariableExpr(
-    val name: String,
-    override val pos: FilePos
-): Expr(pos)
-
 data class NumberExpr(
     val value: Number,
     override val pos: FilePos
@@ -24,6 +19,11 @@ data class StringExpr(
 
 data class CharExpr(
     val value: Char,
+    override val pos: FilePos
+): Expr(pos)
+
+data class VariableExpr(
+    val name: String,
     override val pos: FilePos
 ): Expr(pos)
 

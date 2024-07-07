@@ -320,6 +320,8 @@ class Lexer(private val name: String, private val input: String)
                 }
             }
 
+            '.' -> Token(TokenType.OPERATOR, ".", FilePos(name, line, col))
+
             '\'' ->
             {
                 val value = advance().toString()
