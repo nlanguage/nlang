@@ -16,11 +16,11 @@ fun main() -> i32
 {
     val p: person
 
-    p.age = 74
+    p.age = 80
 
-    p.ident.phone = 4
+    p.ident.phone = 3
 
-    when (p.age >= 65)
+    when (p.age >= 65 || p.ident.phone < 4 && false)
     {
         print("you can retire!\n")
     }

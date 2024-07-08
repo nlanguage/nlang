@@ -12,7 +12,7 @@ data class Operator(
 data class Type(
     val name: String,
     val cName: String,
-    val ops: List<Operator>,
+    var ops: List<Operator>,
     val funcs: MutableList<Prototype>,
     val membs: HashMap<String, VarData>
 )
@@ -32,7 +32,17 @@ val builtinTypes = hashMapOf(
     genArithType("i64", "int64_t"),
     genArithType("int", "ptrdiff_t"),
 
-    genType("bool", "bool"),
+    run {
+        val boolType = genType("bool", "bool")
+
+        boolType.second.ops += listOf(
+            Operator("&&", "bool", "bool", null),
+            Operator("||", "bool", "bool", null)
+        )
+
+        boolType
+    },
+
     genType("char", "char"),
     genType("string", "char*"),
 

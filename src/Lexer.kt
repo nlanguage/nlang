@@ -306,6 +306,36 @@ class Lexer(private val name: String, private val input: String)
                 }
             }
 
+            '&' ->
+            {
+                if (peek() == '&')
+                {
+                    // Consume '&'
+                    advance()
+
+                    Token(TokenType.OPERATOR, "&&", FilePos(name, line, col))
+                }
+                else
+                {
+                    reportError("lex", FilePos(name, line, col), "Unexpected character '${peek()}'")
+                }
+            }
+
+            '|' ->
+            {
+                if (peek() == '|')
+                {
+                    // Consume '|'
+                    advance()
+
+                    Token(TokenType.OPERATOR, "||", FilePos(name, line, col))
+                }
+                else
+                {
+                    reportError("lex", FilePos(name, line, col), "Unexpected character '${peek()}'")
+                }
+            }
+
             '!' ->
             {
                 if (peek() == '=')
