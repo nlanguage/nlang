@@ -2,7 +2,7 @@ fun main(args: Array<String>)
 {
     if (args.size < 2)
     {
-        println("Usage: nc <project> <main file> <other files>")
+        println("Usage: nlang <project> <main file> <other files>")
         return
     }
 

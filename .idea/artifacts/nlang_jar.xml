@@ -1,0 +1,11 @@
+<component name="ArtifactManager">
+  <artifact type="jar" build-on-make="true" name="nlang:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/nlang_jar</output-path>
+    <root id="archive" name="nlang.jar">
+      <element id="module-output" name="nlang" />
+      <element id="extracted-dir" path="$MAVEN_REPOSITORY$/org/jetbrains/kotlin/kotlin-stdlib/2.0.0/kotlin-stdlib-2.0.0.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$MAVEN_REPOSITORY$/org/jetbrains/annotations/13.0/annotations-13.0.jar" path-in-jar="/" />
+      <element id="file-copy" path="$PROJECT_DIR$/resources/stdlib.c" />
+    </root>
+  </artifact>
+</component>

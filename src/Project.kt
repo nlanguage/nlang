@@ -1,4 +1,5 @@
 import java.io.File
+import java.nio.file.Paths
 
 fun buildProject(name: String, filePaths: List<String>)
 {
@@ -29,6 +30,8 @@ fun buildProject(name: String, filePaths: List<String>)
         irFilePaths += Generator(module).generate()
     }
 
+    val stdlib = Paths.get(object {}.javaClass.getResource("stdlib.c").toURI()).toAbsolutePath().toString()
+
     val clangArgs = mutableListOf(
         "clang",
         "-Wno-unused-value",
@@ -36,7 +39,7 @@ fun buildProject(name: String, filePaths: List<String>)
         "-Wno-string-compare",
         "-o",
         name,
-        "stdlib.c",
+        stdlib,
     )
 
     clangArgs += irFilePaths
