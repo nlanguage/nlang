@@ -54,20 +54,20 @@ fun main() -> i32
 ```
 
 # Roadmap
-[X] Lexing
-[X] Parsing
-[X] Typechecker with inference
-[X] Basic Control flow
-[X] Basic compiler infrastructure
-[X] Classes
-[X] Modules
-[ ] Class member functions
-[ ] Namespaces
-[ ] Pointers and Arrays
-[ ] Control flow analysis
-[ ] Pattern Matching
-[ ] Generics
-[ ] World Domination
+- [X] Lexing
+- [X] Parsing
+- [X] Typechecker with inference
+- [X] Basic Control flow
+- [X] Basic compiler infrastructure
+- [X] Classes
+- [X] Modules
+- [ ] Class member functions
+- [ ] Namespaces
+- [ ] Pointers and Arrays
+- [ ] Control flow analysis
+- [ ] Pattern Matching
+- [ ] Generics
+- [ ] World Domination
 
 # Contributions
 Any and all contributions are welcome!
