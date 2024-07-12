@@ -58,6 +58,16 @@ class Generator(val m: Module)
         }
 
         output.append("} ${classType.cName};\n")
+
+        for (func in clas.funcs)
+        {
+            genFunctionDecl(func)
+        }
+
+        for (func in clas.staticFuncs)
+        {
+            genFunctionDecl(func)
+        }
     }
 
     private fun genFunctionDecl(func: FunctionDecl)
@@ -189,8 +199,13 @@ class Generator(val m: Module)
     private fun genBinaryExpr(expr: BinaryExpr)
     {
         output.append("(")
-        genExpr(expr.left)
-        output.append(expr.op)
+
+        if (expr.op != "::")
+        {
+            genExpr(expr.left)
+            output.append(expr.op)
+        }
+
         genExpr(expr.right)
         output.append(")")
     }

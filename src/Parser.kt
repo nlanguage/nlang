@@ -87,7 +87,54 @@ class Parser(val m: Module)
         // Consume ')'
         m.lexer.eat()
 
-        return Class(name, members, pos)
+        val funcs = mutableListOf<FunctionDecl>()
+        val staticFuncs = mutableListOf<FunctionDecl>()
+
+        // Class has functions too
+        if (m.lexer.current.text == "{")
+        {
+            // Consume '{'
+            m.lexer.eat()
+
+            while (m.lexer.current.text != "}")
+            {
+                if (m.lexer.current.text == "fun")
+                {
+                    val func = parseFunction()
+
+                    if (func !is FunctionDecl)
+                    {
+                        reportError(
+                            "parse",
+                            m.lexer.current.pos,
+                            "Cannot have function declaration without definition in class"
+                        )
+                    }
+
+                    if (func.def.proto.hasFlag("static"))
+                    {
+                        staticFuncs += func
+                    }
+                    else
+                    {
+                        funcs += func
+                    }
+                }
+                else
+                {
+                    reportError(
+                        "parse",
+                        m.lexer.current.pos,
+                        "Expected function definition, got '${m.lexer.current.text}'"
+                    )
+                }
+            }
+        }
+
+        // Consume '}'
+        m.lexer.eat()
+
+        return Class(name, members, funcs, hashMapOf(), staticFuncs, pos)
     }
 
     private fun parseFunction(): Node
@@ -480,6 +527,7 @@ class Parser(val m: Module)
 
 private val opPrecedence = mapOf(
     "."  to 70,
+    "::" to 70,
     "*"  to 60,
     "/"  to 60,
     "-"  to 50,

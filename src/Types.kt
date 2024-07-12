@@ -13,8 +13,10 @@ data class Type(
     val name: String,
     val cName: String,
     var ops: List<Operator>,
-    val funcs: MutableList<Prototype>,
-    val membs: HashMap<String, VarData>
+    val funcs: List<Prototype>,
+    val membs: HashMap<String, VarData>,
+    val staticFuncs: List<Prototype>,
+    val staticMembs: HashMap<String, VarData>
 )
 
 typealias TypeTable = HashMap<String, Type>
@@ -46,7 +48,7 @@ val builtinTypes = hashMapOf(
     genType("char", "char"),
     genType("string", "char*"),
 
-    "void" to Type("void", "void", listOf(), mutableListOf(), hashMapOf())
+    "void" to Type("void", "void", listOf(), mutableListOf(), hashMapOf(), mutableListOf(), hashMapOf())
 )
 
 // Helper methods to reduce the code-size of the builtin type table
@@ -58,6 +60,8 @@ fun genArithType(name: String, cName: String): Pair<String, Type>
         cName,
         genArithOps(name) + genFullCompOps(name) + genFullAssignOps(name),
         mutableListOf(),
+        hashMapOf(),
+        mutableListOf(),
         hashMapOf()
     )
 }
@@ -68,6 +72,8 @@ fun genType(name: String, cName: String): Pair<String, Type>
         name,
         cName,
         genBaseCompOps(name)  + genBaseAssignOps(name),
+        mutableListOf(),
+        hashMapOf(),
         mutableListOf(),
         hashMapOf()
     )

@@ -261,7 +261,6 @@ class Lexer(private val name: String, private val input: String)
             '}',
             '(',
             ',',
-            ':',
             '@' -> Token(TokenType.DELIMITER, cur.toString(), FilePos(name, line, col))
 
             '=' ->
@@ -321,6 +320,22 @@ class Lexer(private val name: String, private val input: String)
                 }
             }
 
+            ':' ->
+            {
+                if (peek() == ':')
+                {
+                    // Consume ':'
+                    advance()
+                    Token(TokenType.OPERATOR, "::", FilePos(name, line, col))
+                }
+                else
+                {
+                    Token(TokenType.OPERATOR, ":", FilePos(name, line, col))
+                }
+            }
+
+            '.' -> Token(TokenType.OPERATOR, ".", FilePos(name, line, col))
+
             '|' ->
             {
                 if (peek() == '|')
@@ -350,7 +365,6 @@ class Lexer(private val name: String, private val input: String)
                 }
             }
 
-            '.' -> Token(TokenType.OPERATOR, ".", FilePos(name, line, col))
 
             '\'' ->
             {

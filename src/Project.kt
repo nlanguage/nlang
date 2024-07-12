@@ -30,7 +30,7 @@ fun buildProject(name: String, filePaths: List<String>)
         irFilePaths += Generator(module).generate()
     }
 
-    val stdlib = Paths.get(object {}.javaClass.getResource("stdlib.c").toURI()).toAbsolutePath().toString()
+    val stdlib = Paths.get(object {}.javaClass.getResource("stdlib.c")!!.toURI()).toAbsolutePath().toString()
 
     val clangArgs = mutableListOf(
         "clang",

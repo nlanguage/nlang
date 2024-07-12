@@ -1,6 +1,6 @@
 import ast.*
 
-data class Scope(var vars: HashMap<String, VarData>, val funcs: MutableList<Prototype>)
+data class Scope(var vars: HashMap<String, VarData>, val funcs: List<Prototype>)
 
 class Checker(val m: Module)
 {
@@ -21,16 +21,17 @@ class Checker(val m: Module)
 
     private fun checkClass(clas: Class)
     {
-        val cName = "_Z${clas.name}"
-
-        m.types[clas.name] = Type(clas.name, cName, listOf(), mutableListOf(), clas.members)
-
         for (memb in clas.members)
         {
             if (m.types[memb.value.type] == null)
             {
                 reportError("check", memb.value.pos, "Unknown type '${memb.value.type}'")
             }
+        }
+
+        for (func in clas.funcs)
+        {
+            checkFunction(func)
         }
     }
 
@@ -190,6 +191,21 @@ class Checker(val m: Module)
 
     private fun checkBinaryExpr(expr: BinaryExpr, hint: String?, scope: Scope): Result<String>
     {
+        if (expr.op == "::")
+        {
+            if (expr.left !is VariableExpr)
+            {
+                return Result.failure(
+                    CompileError("check", expr.left.pos, "Expected type name")
+                )
+            }
+
+            val type = m.types[expr.left.name] ?:
+                return Result.failure(CompileError("check", expr.left.pos, "Unknown type '${expr.left.name}'"))
+
+            return checkExpr(expr.right, null, scope, Scope(type.staticMembs, type.staticFuncs))
+        }
+
         val lhs = if (expr.op == ".")
         {
             checkExpr(expr.left, null, scope).getOrElse { return Result.failure(it) }

@@ -80,9 +80,44 @@ class Module(val file: File)
             {
                 is FunctionDef  -> registerFunction(node)
                 is FunctionDecl -> registerFunction(node.def)
+                is Class        -> registerClass(node)
                 else -> {}
             }
         }
+    }
+
+    private fun registerClass(clas: Class)
+    {
+        val cName = "_Z${clas.name}"
+
+        for (func in clas.funcs)
+        {
+            func.def.proto.cName = buildString {
+                append("_Z${clas.name}_${func.def.proto.name}")
+
+                for (arg in func.def.proto.params)
+                {
+                    append("_${arg.value}")
+                }
+            }
+        }
+
+        for (func in clas.staticFuncs)
+        {
+            func.def.proto.cName = buildString {
+                append("_Z${clas.name}_${func.def.proto.name}")
+
+                for (arg in func.def.proto.params)
+                {
+                    append("_${arg.value}")
+                }
+            }
+        }
+
+        val funcs = clas.funcs.map { it.def.proto }
+        val staticFuncs = clas.staticFuncs.map { it.def.proto }
+
+        types[clas.name] = Type(clas.name, cName, listOf(), funcs, clas.members, staticFuncs, clas.staticMembers)
     }
 
     private fun registerFunction(def: FunctionDef)
