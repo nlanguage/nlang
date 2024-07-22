@@ -1,25 +1,4 @@
-import ast.Expr
-import ast.Prototype
-import ast.VarData
-
-data class Operator(
-    val name: String,
-    val rhs: String,
-    val ret: String?,
-    val func: String?
-)
-
-data class Type(
-    val name: String,
-    val cName: String,
-    var ops: List<Operator>,
-    val funcs: List<Prototype>,
-    val membs: HashMap<String, VarData>,
-    val staticFuncs: List<Prototype>,
-    val staticMembs: HashMap<String, VarData>
-)
-
-typealias TypeTable = HashMap<String, Type>
+package symtable
 
 val builtinTypes = hashMapOf(
     genArithType("u8", "uint8_t"),
@@ -34,10 +13,11 @@ val builtinTypes = hashMapOf(
     genArithType("i64", "int64_t"),
     genArithType("int", "ptrdiff_t"),
 
+    // Only booleans can have AND and OR operations
     run {
         val boolType = genType("bool", "bool")
 
-        boolType.second.ops += listOf(
+        boolType.second.opers += listOf(
             Operator("&&", "bool", "bool", null),
             Operator("||", "bool", "bool", null)
         )
@@ -48,7 +28,7 @@ val builtinTypes = hashMapOf(
     genType("char", "char"),
     genType("string", "char*"),
 
-    "void" to Type("void", "void", listOf(), mutableListOf(), hashMapOf(), mutableListOf(), hashMapOf())
+    "void" to Type("void", listOf(), listOf(), hashMapOf(), hashMapOf(), setOf())
 )
 
 // Helper methods to reduce the code-size of the builtin type table
@@ -56,26 +36,24 @@ val builtinTypes = hashMapOf(
 fun genArithType(name: String, cName: String): Pair<String, Type>
 {
     return name to Type(
-        name,
         cName,
+        listOf(),
         genArithOps(name) + genFullCompOps(name) + genFullAssignOps(name),
-        mutableListOf(),
         hashMapOf(),
-        mutableListOf(),
-        hashMapOf()
+        hashMapOf(),
+        setOf(),
     )
 }
 
 fun genType(name: String, cName: String): Pair<String, Type>
 {
     return name to Type(
-        name,
         cName,
+        listOf(),
         genBaseCompOps(name)  + genBaseAssignOps(name),
-        mutableListOf(),
         hashMapOf(),
-        mutableListOf(),
-        hashMapOf()
+        hashMapOf(),
+        setOf(),
     )
 }
 

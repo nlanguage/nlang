@@ -1,26 +1,9 @@
-import ast.FilePos
+package pipeline.lexer
 
-enum class TokenType
-{
-    IDENTIFIER,
-    NUMERIC,
-    BOOLEAN,
-    CHARACTER,
-    STRING,
-    OPERATOR,
-    DELIMITER,
-    KEYWORD,
-    EOF
+import util.FilePos
+import util.reportError
 
-}
-
-data class Token(
-    val type: TokenType,
-    val text: String,
-    val pos: FilePos
-)
-
-class Lexer(private val name: String, private val input: String)
+class Lexer(val name: String, private val input: String)
 {
     // current and lookahead tokens will be valid after prime()
 
@@ -393,7 +376,7 @@ class Lexer(private val name: String, private val input: String)
             in 'a'..'z',
             in 'A'..'Z',
             '_',
-                         -> handleAlpha()
+            -> handleAlpha()
 
             else         -> reportError("lex", FilePos(name, line, col), "Unexpected character '$cur'")
         }

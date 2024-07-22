@@ -1,4 +1,5 @@
-import ast.FilePos
+package util
+
 import kotlin.system.exitProcess
 
 const val RESET = "\u001B[0m"

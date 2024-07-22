@@ -1,5 +1,7 @@
 package ast
 
+import util.FilePos
+
 sealed class Expr(open val pos: FilePos)
 
 data class NumberExpr(
@@ -22,15 +24,15 @@ data class CharExpr(
     override val pos: FilePos
 ): Expr(pos)
 
-data class VariableExpr(
-    val name: String,
+data class IdentExpr(
+    val value: String,
     override val pos: FilePos
 ): Expr(pos)
 
 data class CallExpr(
-    var callee: String,
-    var cCallee: String,
-    var args: List<Argument>,
+    var name: String,
+    var cName: String,
+    var args: MutableList<Argument>,
     override val pos: FilePos
 ): Expr(pos)
 
