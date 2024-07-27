@@ -49,7 +49,7 @@ class Parser(path: String)
         return Import(lexer.eat(), pos)
     }
 
-    private fun parseClassDef(): ClassDef
+    private fun parseClassDef(mods: List<String>): ClassDef
     {
         val pos = lexer.current.pos;
 
@@ -69,31 +69,40 @@ class Parser(path: String)
         // Consume '}'
         lexer.eat()
 
-        return ClassDef(name, listOf(), nodes, pos)
+        return ClassDef(name, mods, nodes, pos)
     }
 
     private fun parseNode(parent: String?): Node
     {
-        return when (lexer.current.text)
+        val mods = mutableListOf<String>()
+
+        while (true)
         {
-            "fun"    -> parseFunctionDef(parent)
-            "class"  -> parseClassDef()
-
-            "val",
-            "var"    -> parseDeclarationStatement()
-
-            else     ->
+            when (lexer.current.text)
             {
-                reportError(
-                    "parse",
-                    lexer.current.pos,
-                    "Expected top-level declaration, found '${lexer.current.text}'"
-                )
+                "mut",
+                "anon",
+                "export",
+                "extern",
+                "static"  -> mods += lexer.eat()
+
+                "fun"     -> return parseFunctionDef(mods, parent)
+                "class"   -> return parseClassDef(mods)
+                "var"     -> return parseDeclarationStatement(mods)
+
+                else      ->
+                {
+                    reportError(
+                        "parse",
+                        lexer.current.pos,
+                        "Expected top-level declaration, found '${lexer.current.text}'"
+                    )
+                }
             }
         }
     }
 
-    private fun parseFunctionDef(parent: String?): FunctionDef
+    private fun parseFunctionDef(mods: List<String>, parent: String?): FunctionDef
     {
         val pos = lexer.current.pos
 
@@ -146,12 +155,6 @@ class Parser(path: String)
             returnType = lexer.eat()
         }
 
-        val mods = mutableListOf<String>()
-        while (lexer.current.text == "@")
-        {
-            mods += parseModifier()
-        }
-
         var block: Block? = null
         if (lexer.current.text == "{")
         {
@@ -159,13 +162,6 @@ class Parser(path: String)
         }
 
         return FunctionDef(name, parent, instance, params, mods, returnType, block, pos)
-    }
-    private fun parseModifier(): String
-    {
-        // Consume '@'
-        lexer.eat()
-
-        return lexer.eat()
     }
 
     private fun parseBlock(): Block
@@ -178,12 +174,15 @@ class Parser(path: String)
         {
             val pos = lexer.current.pos
 
+            val mods = mutableListOf<String>()
+
             when (lexer.current.text)
             {
                 "return" -> statements += parseReturnStatement()
 
-                "val",
-                "var"    -> statements += parseDeclarationStatement()
+                "mut"    -> mods += lexer.eat()
+
+                "var"    -> statements += parseDeclarationStatement(mods)
 
                 "when"   -> statements += parseWhenStatement()
                 "loop"   -> statements += parseLoopStatement()
@@ -273,16 +272,12 @@ class Parser(path: String)
         return Branch(expr, block)
     }
 
-    private fun parseDeclarationStatement(): Statement
+    private fun parseDeclarationStatement(mods: List<String>): Statement
     {
         val pos = lexer.current.pos
 
-        val mutable = when (lexer.eat())
-        {
-            "val" -> false
-            "var" -> true
-            else  -> throw InternalCompilerException("Impossible case reached");
-        }
+        // Consume 'var'
+        lexer.eat()
 
         val name = lexer.eat()
 
@@ -302,7 +297,7 @@ class Parser(path: String)
             expr = parseExpr()
         }
 
-        return DeclarationStatement(name, type, listOf(), expr, pos)
+        return DeclarationStatement(name, type, mods, expr, pos)
     }
 
     private fun parseReturnStatement(): Statement
